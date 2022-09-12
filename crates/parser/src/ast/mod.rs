@@ -1,23 +1,17 @@
+use thiserror::Error;
+
+use crate::SyntaxElement;
+
+pub mod nodes;
 pub mod tokens;
 
-use crate::{ast_node, SyntaxNode};
-use rowan::ast::{support, AstNode};
-use syntax::SyntaxKind;
-
-use self::tokens::{AstToken, Ident};
-
-ast_node!(Path, PATH);
-impl Path {
-    pub fn segments(&self) -> impl Iterator<Item = PathSegmentNamed> {
-        self.children().filter_map(PathSegmentNamed::cast)
-    }
+#[derive(Error, Debug)]
+pub enum AstError {
+    #[error("Invalid cast")]
+    InvalidCast,
 }
-ast_node!(PathSegmentNamed, PATH_SEGMENT_NAMED);
-impl PathSegmentNamed {
-    pub fn ident(&self) -> Ident {
-        support::token(self, SyntaxKind::IDENTIFIER)
-            .and_then(Ident::cast)
-            .expect("Invalid PathSegmentNamed")
-    }
+
+pub trait AstElement: Sized {
+    fn cast(element: SyntaxElement) -> Result<Self, AstError>;
+    fn syntax(&self) -> SyntaxElement;
 }
-ast_node!(PathSeperator, PATH_SEPERATOR);

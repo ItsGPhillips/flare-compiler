@@ -8,16 +8,6 @@ pub enum SyntaxKind {
     IDENTIFIER,
 
     #[doc(hidden)]
-    _LIT_START_,
-
-    LIT_INTEGER,
-    LIT_FLOAT,
-    LIT_STRING,
-    LIT_CHAR,
-
-    #[doc(hidden)]
-    _LIT_END_,
-    #[doc(hidden)]
     _KW_START_,
 
     /// fn
@@ -145,11 +135,23 @@ pub enum SyntaxKind {
 
     #[doc(hidden)]
     _MISC_END_,
-    
+
     #[doc(hidden)]
     _EXPR_START_,
-    
+
+    #[doc(hidden)]
+    _LIT_START_,
+
+    LIT_INTEGER,
+    LIT_FLOAT,
+    LIT_STRING,
+    LIT_CHAR,
+
+    #[doc(hidden)]
+    _LIT_END_,
+
     EXPR_TUPLE,
+    EXPR_BINOP_ADD,
 
     #[doc(hidden)]
     _EXPR_END_,
@@ -159,8 +161,15 @@ pub enum SyntaxKind {
     PATH_SEGMENT_NAMED,
     PATH_SEGMENT_GENERIC,
 
+    UNOP_NOT,
+    UNOP_REF,
+    UNOP_DEREF,
+    UNOP_NEG,
+    UNOP_TRY,
+
     ERROR,
 
+    MODULE,
     // IMPORTANT: Make sure _LAST_MARKER_ is always the last variant
     #[doc(hidden)]
     _LAST_MARKER_,
@@ -176,14 +185,25 @@ impl SyntaxKind {
     pub const fn to_raw(&self) -> u16 {
         *self as u16
     }
+    #[inline(always)]
     pub fn is_keyword(&self) -> bool {
         *self > Self::_KW_START_ && *self < Self::_KW_END_
-}
+    }
+    #[inline(always)]
     pub fn is_literal(&self) -> bool {
         *self > Self::_LIT_START_ && *self < Self::_LIT_END_
     }
+    #[inline(always)]
     pub fn is_punctution(&self) -> bool {
         *self > Self::_PUNC_START_ && *self < Self::_PUNC_END_
+    }
+    #[inline(always)]
+    pub fn is_expression(&self) -> bool {
+        *self > Self::_EXPR_START_ && *self < Self::_EXPR_END_ || matches!(*self, Self::PATH)
+    }
+    #[inline(always)]
+    pub fn is_error(&self) -> bool {
+        *self == Self::ERROR
     }
     #[inline]
     #[rustfmt::skip]
@@ -191,7 +211,7 @@ impl SyntaxKind {
         use SyntaxKind::*;
         match self {
             IDENTIFIER          => "IDENT",
-            LIT_INTEGER         => "INTEGAR",
+            LIT_INTEGER         => "INTEGER",
             LIT_FLOAT           => "FLOAT",
             LIT_STRING          => "STRING",
             LIT_CHAR            => "CHAR",

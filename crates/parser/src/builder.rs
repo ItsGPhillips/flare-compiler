@@ -6,7 +6,7 @@ use lexer::{
     token::{Token, NULL_TOKEN},
     TokenStream,
 };
-use rowan::{Checkpoint, GreenNodeBuilder, Language, GreenNode};
+use rowan::{Checkpoint, GreenNode, GreenNodeBuilder, Language};
 use syntax::SyntaxKind;
 
 use crate::Flare;
@@ -15,7 +15,7 @@ pub(crate) struct SyntaxTreeBuilder {
     src: Arc<str>,
     tokens: PeekNth<TokenStream>,
     builder: GreenNodeBuilder<'static>,
-    errors: Vec<Diagnostic>,
+    pub(crate) errors: Vec<Diagnostic>,
 }
 
 impl SyntaxTreeBuilder {
@@ -49,7 +49,7 @@ impl SyntaxTreeBuilder {
             Flare::kind_to_raw(token.kind()),
             token.span().get_str(&self.src),
         );
-        if skip_whitespace {
+        if !skip_whitespace {
             return;
         }
         self.skip_whitespace()
@@ -172,7 +172,7 @@ impl SyntaxTreeBuilder {
     #[allow(unused)]
     pub(crate) fn finish_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
         self.builder
-        .start_node_at(checkpoint, Flare::kind_to_raw(kind));
+            .start_node_at(checkpoint, Flare::kind_to_raw(kind));
         self.finish_node();
     }
     #[inline(always)]

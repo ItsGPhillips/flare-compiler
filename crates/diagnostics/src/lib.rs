@@ -1,6 +1,7 @@
 use span::Span;
 pub mod span;
 
+#[derive(Debug)]
 pub enum DiagnosticLevel {
    FATAL,
    WARNING,
@@ -8,6 +9,7 @@ pub enum DiagnosticLevel {
    INFO,
 }
 
+#[derive(Debug)]
 pub struct Diagnostic {
    pub level: DiagnosticLevel,
    pub title: String,

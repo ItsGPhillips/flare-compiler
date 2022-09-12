@@ -6,6 +6,7 @@ macro_rules! Tkn {
    [FLOAT]        =>  { ::syntax::SyntaxKind::LIT_FLOAT     };
    ["Self"]       =>  { ::syntax::SyntaxKind::KW_SELF_TYPE  };
    ["self"]       =>  { ::syntax::SyntaxKind::KW_SELF_VALUE };
+   ["mut"]        =>  { ::syntax::SyntaxKind::KW_MUT        };
    ["crate"]      =>  { ::syntax::SyntaxKind::KW_CRATE      };
    ["super"]      =>  { ::syntax::SyntaxKind::KW_SUPER      };
 
@@ -16,55 +17,69 @@ macro_rules! Tkn {
    ["<"]    =>  { ::syntax::SyntaxKind::PUNC_LANGLE_BRACKET };
    [">"]    =>  { ::syntax::SyntaxKind::PUNC_RANGLE_BRACKET };
    [","]    =>  { ::syntax::SyntaxKind::PUNC_COMMA          };
+   ["!"]    =>  { ::syntax::SyntaxKind::PUNC_EXCLAMATION    };
+   ["*"]    =>  { ::syntax::SyntaxKind::PUNC_ASTERISK       };
+   ["-"]    =>  { ::syntax::SyntaxKind::PUNC_HYPHEN         };
+   ["&"]    =>  { ::syntax::SyntaxKind::PUNC_AMPERSAND      };
+   ["?"]    =>  { ::syntax::SyntaxKind::PUNC_QUESTIONMARK   };
 }
 
 #[macro_export]
 macro_rules! ast_token {
-   ($NAME:ident, $KIND:ident) => {
-       #[derive(::derive_more::Deref, ::derive_more::DerefMut, Clone, Debug)]
-       pub struct $NAME(crate::SyntaxToken);
-       impl crate::ast::tokens::AstToken for $NAME {
-           fn can_cast(kind: ::syntax::SyntaxKind) -> bool
-           where
-               Self: Sized,
-           {
-               kind == ::syntax::SyntaxKind::$KIND
-           }
-           fn cast(node: crate::SyntaxToken) -> Option<Self>
-           where
-               Self: Sized,
-           {
-               Self::can_cast(node.kind()).then(|| Self(node))
-           }
-           fn syntax(&self) -> &crate::SyntaxToken {
-               &self
-           }
-       }
-   };
+    ($NAME:ident, $KIND:ident) => {
+        #[derive(::derive_more::Deref, ::derive_more::DerefMut, Clone, Debug)]
+        pub struct $NAME(crate::SyntaxToken);
+        impl crate::ast::tokens::AstToken for $NAME {
+            fn can_cast(kind: ::syntax::SyntaxKind) -> bool
+            where
+                Self: Sized,
+            {
+                kind == ::syntax::SyntaxKind::$KIND
+            }
+            fn cast(node: crate::SyntaxToken) -> Option<Self>
+            where
+                Self: Sized,
+            {
+                Self::can_cast(node.kind()).then(|| Self(node))
+            }
+            fn syntax(&self) -> &crate::SyntaxToken {
+                &self
+            }
+        }
+    };
 }
 
 #[macro_export]
 macro_rules! ast_node {
-   ($NAME:ident, $KIND:ident) => {
-       #[derive(::derive_more::Deref, ::derive_more::DerefMut, Clone, Debug)]
-       pub struct $NAME(SyntaxNode);
-       impl AstNode for $NAME {
-           type Language = crate::Flare;
-           fn can_cast(kind: ::syntax::SyntaxKind) -> bool
-           where
-               Self: Sized,
-           {
-               kind == ::syntax::SyntaxKind::$KIND
-           }
-           fn cast(node: crate::SyntaxNode) -> Option<Self>
-           where
-               Self: Sized,
-           {
-               Self::can_cast(node.kind()).then(|| Self(node))
-           }
-           fn syntax(&self) -> &crate::SyntaxNode {
-               &self
-           }
-       }
-   };
+    ($NAME:ident, $KIND:ident) => {
+        #[derive(Debug)]
+        pub struct $NAME(SyntaxNode);
+        impl AstElement for $NAME {
+            fn cast(element: crate::SyntaxElement) -> Result<Self, crate::ast::AstError> {
+                element
+                    .as_node()
+                    .filter(|node| node.kind() == ::syntax::SyntaxKind::$KIND)
+                    .map(|token| Self(token.clone()))
+                    .ok_or_else(|| crate::ast::AstError::InvalidCast)
+            }
+            fn syntax(&self) -> crate::SyntaxElement {
+                crate::SyntaxElement::Node(self.0.clone())
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_expr_from {
+    ($(
+        $NAME:ident => $VARIANT:ident,
+    )*) => {
+        $(
+            impl From<$NAME> for Expr {
+                fn from(lit: $NAME) -> Self {
+                    Self::$VARIANT(lit)
+                }
+            }
+        )*
+    };
 }

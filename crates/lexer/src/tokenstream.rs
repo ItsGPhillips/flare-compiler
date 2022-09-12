@@ -38,8 +38,7 @@ impl Iterator for TokenStream {
 impl TokenStream<TextInputTokenStream<'static>> {
     pub fn new(src: Arc<str>) -> Self {
         // SAFETY: TokenStream owns a reference to the ArcStr and will keep the ArcStr alive
-        // for as long as its alive. RawTokenStream requires a lifetime (though this transmute
-        // may be lowered to the RawTokenStream level) as it contains an iterator over the str.
+        // for as long as its alive. RawTokenStream requires a lifetime as it contains an iterator over the str.
         // As the ArcStr will never be dropped as long as TokenStream is alive we can safely
         // extend the life time to 'static. Any references to the 'static str will be dropped
         // when RawTokenStream is dropped.
@@ -106,6 +105,8 @@ impl<T: TokenStreamSource> TokenStream<T> {
             "continue" => Some(KW_FALSE  ),
             "Self"     => Some(KW_SELF_TYPE  ),
             "self"     => Some(KW_SELF_VALUE ),
+            "super"    => Some(KW_SUPER  ),
+            "crate"    => Some(KW_CRATE  ),
             _ => None,
         }
     }

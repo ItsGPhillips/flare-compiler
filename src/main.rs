@@ -1,9 +1,8 @@
-use std::sync::Arc;
 
-use parser::print_syntax_tree;
+use parser::parse_text;
 
-const SRC: &str = ":A";
+const SRC: &str = "&&test::core::thing???";
 
 fn main() {
-    print_syntax_tree(Arc::from(SRC));
+    parse_text(SRC.into());
 }
