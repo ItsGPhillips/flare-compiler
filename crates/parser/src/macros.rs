@@ -39,6 +39,9 @@ macro_rules! Tkn {
    ["/="]    =>  { ::syntax::SyntaxKind::BINOP_DIV_ASSIGN   };
    [">="]    =>  { ::syntax::SyntaxKind::BINOP_GTE          };
    ["<="]    =>  { ::syntax::SyntaxKind::BINOP_LTE          };
+   ["<="]    =>  { ::syntax::SyntaxKind::BINOP_LTE          };
+   [">>="]   =>  { ::syntax::SyntaxKind::BINOP_SHIFT_R_ASSIGN };
+   ["<<="]   =>  { ::syntax::SyntaxKind::BINOP_SHIFT_L_ASSIGN };
 
    [NULL]    =>  { ::syntax::SyntaxKind::MISC_NULL };
 }

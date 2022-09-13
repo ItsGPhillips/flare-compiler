@@ -8,71 +8,50 @@ impl SyntaxTreeBuilder {
     pub(crate) fn legal_expr_start() -> impl Iterator<Item = SyntaxKind> {
         [
             Tkn![IDENT],
+            Tkn![INTEGER],
+            Tkn![FLOAT],
+            Tkn!["\""],
+            Tkn!["\'"],
             Tkn!["Self"],
             Tkn!["self"],
             Tkn![":"],
             Tkn!["crate"],
             Tkn!["super"],
-            Tkn![INTEGER],
-            Tkn![FLOAT],
-            Tkn!["\""],
-            Tkn!["\'"],
         ]
         .into_iter()
     }
 
     pub(crate) fn parse_module(&mut self) {
         self.start_node(SyntaxKind::MODULE);
-        self.parse_expr(0);
+        self.parse_expr();
         self.finish_node();
     }
 
-    pub(crate) fn parse_expr(&mut self, current_prec: u8) {
-        // self.skip_whitespace();
-        // let expr = self.checkpoint();
-        // self.parse_operand();
-
-        // loop {
-        //     if let Some((kind, _)) = self.peek_binop() {
-        //         self.skip_whitespace();
-
-        //         let new_prec = get_binop_precidence(kind);
-        //         if current_prec < new_prec {
-        //             self.try_parse_binop().expect("This must always be some");
-        //             self.parse_expr(new_prec);
-        //         } else {
-        //             self.parse_operand();
-        //             self.finish_node_at(expr, kind);
-        //         }
-
-        //     } else {
-        //         break;
-        //     }
-        // }
-
-        self.binop_impl(Tkn![NULL]);
-    }
-
-    fn binop_impl(&mut self, last_binop: SyntaxKind) {
-        self.skip_whitespace();
-        let c = self.checkpoint();
-        self.parse_operand();
-        self.skip_whitespace();
-        loop {
-            if let Some((new_binop, _)) = self.peek_binop() {
-                let new_prec = get_binop_precidence(new_binop);
-                let last_prec = get_binop_precidence(last_binop);
-                if new_prec > last_prec {
-                    self.try_parse_binop();
-                    self.binop_impl(new_binop);
-                    self.finish_node_at(c, new_binop)
+    pub(crate) fn parse_expr(&mut self) {
+        #[inline]
+        fn precedence_parser_impl(mut stb: &mut SyntaxTreeBuilder, last_binop: SyntaxKind) {
+            stb.skip_whitespace();
+            let c = stb.checkpoint();
+            stb.parse_operand();
+            stb.skip_whitespace();
+            loop {
+                if let Some((new_binop, _)) = stb.peek_binop() {
+                    let new_prec = get_binop_precidence(new_binop);
+                    let last_prec = get_binop_precidence(last_binop);
+                    if new_prec > last_prec {
+                        stb.try_parse_binop();
+                        precedence_parser_impl(&mut stb, new_binop);
+                        stb.finish_node_at(c, new_binop)
+                    } else {
+                        return;
+                    }
                 } else {
                     return;
                 }
-            } else {
-                return;
             }
         }
+
+        precedence_parser_impl(self, Tkn![NULL]);
     }
 
     pub(crate) fn try_parse_binop(&mut self) -> Option<SyntaxKind> {
@@ -175,7 +154,7 @@ impl SyntaxTreeBuilder {
                     stb.advance(false);
                     return;
                 }
-                Some(_) => stb.parse_expr(0),
+                Some(_) => stb.parse_expr(),
                 None => return,
             }
         }
@@ -206,7 +185,7 @@ impl SyntaxTreeBuilder {
             }
             _ => return,
         }
-        self.parse_expr(0);
+        self.parse_expr();
         self.finish_node();
     }
 
@@ -236,8 +215,14 @@ fn get_binop_precidence(kind: SyntaxKind) -> u8 {
         Tkn![NULL] => 0,
         BINOP_ADD | BINOP_SUB => 3,
         BINOP_MUL | BINOP_DIV | BINOP_MOD => 5,
-        Tkn!["=="] | Tkn!["!="] => 5,
-        Tkn!["="] | Tkn!["+="] | Tkn!["-="] | Tkn!["*="] | Tkn!["/="] => 16,
+        BINOP_GT | BINOP_LT | BINOP_GTE | BINOP_LTE => 9,
+        Tkn!["=="] | Tkn!["!="] => 10,
+        BINOP_BITAND => 11,
+        BINOP_XOR => 12,
+        BINOP_BITOR => 13,
+        BINOP_AND => 14,
+        BINOP_OR => 15,
+        Tkn!["+="] | Tkn!["-="] | Tkn!["*="] | Tkn!["/="] | Tkn!["<<="] | Tkn![">>="] => 16,
         kind => panic!("{kind} is not a Binop"),
     }
 }

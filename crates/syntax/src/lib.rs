@@ -179,13 +179,15 @@ pub enum SyntaxKind {
     BINOP_OR,
     /// |
     BINOP_BITOR,
+    /// \^
+    BINOP_XOR,
     /// &&
     BINOP_AND,
     /// &
     BINOP_BITAND,
     /// =
-    BINOP_ASSIGN,
     /// +=
+    BINOP_ASSIGN,
     BINOP_ADD_ASSIGN,
     /// -=
     BINOP_SUB_ASSIGN,
