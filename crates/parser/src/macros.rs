@@ -92,16 +92,37 @@ macro_rules! ast_node {
 }
 
 #[macro_export]
-macro_rules! impl_expr_from {
-    ($(
+macro_rules! impl_from {
+    ($TYPE:ty, $(
         $NAME:ident => $VARIANT:ident,
     )*) => {
         $(
-            impl From<$NAME> for Expr {
+            impl From<$NAME> for $TYPE {
                 fn from(lit: $NAME) -> Self {
                     Self::$VARIANT(lit)
                 }
             }
         )*
+    };
+}
+
+#[macro_export]
+macro_rules! gen_binop_node {
+    ($NAME:ident, $KIND:ident) => {
+        crate::ast_node!($NAME, $KIND);
+        impl $NAME {
+            #[inline]
+            pub fn lhs_expr(&self) -> Option<crate::ast::nodes::Expr> {
+                crate::ast::utils::children::<crate::ast::nodes::Expr>(&self.0).nth(0)
+            }
+            #[inline]
+            pub fn rhs_expr(&self) -> Option<crate::ast::nodes::Expr> {
+                crate::ast::utils::children::<crate::ast::nodes::Expr>(&self.0).nth(1)
+            }
+            #[inline]
+            pub fn operator(&self) -> Option<crate::ast::nodes::Operator> {
+                crate::ast::utils::children::<crate::ast::nodes::Operator>(&self.0).next()
+            }
+        }
     };
 }

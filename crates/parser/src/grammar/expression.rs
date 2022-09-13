@@ -50,7 +50,6 @@ impl SyntaxTreeBuilder {
                 }
             }
         }
-
         precedence_parser_impl(self, Tkn![NULL]);
     }
 

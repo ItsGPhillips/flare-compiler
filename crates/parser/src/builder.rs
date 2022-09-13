@@ -9,7 +9,7 @@ use lexer::{
 use rowan::{Checkpoint, GreenNode, GreenNodeBuilder, Language};
 use syntax::SyntaxKind;
 
-use crate::{ast::AstError, Flare, Tkn};
+use crate::{Flare, Tkn};
 
 pub(crate) struct SyntaxTreeBuilder {
     src: Arc<str>,
@@ -152,13 +152,10 @@ impl SyntaxTreeBuilder {
     /// **until** should be a function that returns an iterator over the
     /// legal token kinds.
     /// returns true if EOF was reached.
-    pub(crate) fn error_until<F, I>(
-        &mut self,
-        until: F,
-    ) -> Option<SyntaxKind>
+    pub(crate) fn error_until<F, I>(&mut self, until: F) -> Option<SyntaxKind>
     where
         F: Fn() -> I,
-        I: Iterator<Item = SyntaxKind>
+        I: Iterator<Item = SyntaxKind>,
     {
         let c = self.checkpoint();
         let mut has_errors = false;

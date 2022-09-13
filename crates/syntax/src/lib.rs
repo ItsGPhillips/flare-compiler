@@ -186,8 +186,8 @@ pub enum SyntaxKind {
     /// &
     BINOP_BITAND,
     /// =
-    /// +=
     BINOP_ASSIGN,
+    /// +=
     BINOP_ADD_ASSIGN,
     /// -=
     BINOP_SUB_ASSIGN,
@@ -264,6 +264,10 @@ impl SyntaxKind {
     #[inline(always)]
     pub fn is_error(&self) -> bool {
         *self == Self::ERROR
+    }
+    #[inline(always)]
+    pub fn is_whitespace(&self) -> bool {
+        *self == Self::WHITESPACE
     }
     #[inline]
     #[rustfmt::skip]
