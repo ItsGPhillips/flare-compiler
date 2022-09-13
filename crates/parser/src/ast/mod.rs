@@ -9,6 +9,9 @@ pub mod tokens;
 pub enum AstError {
     #[error("Invalid cast")]
     InvalidCast,
+
+    #[error("Unexpected EOF")]
+    UnexpectedEOF,
 }
 
 pub trait AstElement: Sized {

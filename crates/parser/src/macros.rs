@@ -22,6 +22,25 @@ macro_rules! Tkn {
    ["-"]    =>  { ::syntax::SyntaxKind::PUNC_HYPHEN         };
    ["&"]    =>  { ::syntax::SyntaxKind::PUNC_AMPERSAND      };
    ["?"]    =>  { ::syntax::SyntaxKind::PUNC_QUESTIONMARK   };
+   ["("]    =>  { ::syntax::SyntaxKind::PUNC_LPAREN         };
+   [")"]    =>  { ::syntax::SyntaxKind::PUNC_RPAREN         };
+   ["+"]    =>  { ::syntax::SyntaxKind::PUNC_PLUS           };
+   ["-"]    =>  { ::syntax::SyntaxKind::PUNC_HYPHEN         };
+   ["%"]    =>  { ::syntax::SyntaxKind::PUNC_PERCENT        };
+   ["/"]    =>  { ::syntax::SyntaxKind::PUNC_SLASH          };
+   ["="]    =>  { ::syntax::SyntaxKind::PUNC_EQUALS         };
+   ["|"]    =>  { ::syntax::SyntaxKind::PUNC_PIPE           };
+
+   ["=="]    =>  { ::syntax::SyntaxKind::BINOP_EQ           };
+   ["!="]    =>  { ::syntax::SyntaxKind::BINOP_NOT_EQ       };
+   ["+="]    =>  { ::syntax::SyntaxKind::BINOP_ADD_ASSIGN   };
+   ["-="]    =>  { ::syntax::SyntaxKind::BINOP_SUB_ASSIGN   };
+   ["*="]    =>  { ::syntax::SyntaxKind::BINOP_MUL_ASSIGN   };
+   ["/="]    =>  { ::syntax::SyntaxKind::BINOP_DIV_ASSIGN   };
+   [">="]    =>  { ::syntax::SyntaxKind::BINOP_GTE          };
+   ["<="]    =>  { ::syntax::SyntaxKind::BINOP_LTE          };
+
+   [NULL]    =>  { ::syntax::SyntaxKind::MISC_NULL };
 }
 
 #[macro_export]

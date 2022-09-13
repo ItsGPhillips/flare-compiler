@@ -133,6 +133,7 @@ pub enum SyntaxKind {
     /// Unknown
     MISC_UNKNOWN,
 
+
     #[doc(hidden)]
     _MISC_END_,
 
@@ -151,25 +152,82 @@ pub enum SyntaxKind {
     _LIT_END_,
 
     EXPR_TUPLE,
-    EXPR_BINOP_ADD,
+
+    /// ==
+    BINOP_EQ,
+    /// !=
+    BINOP_NOT_EQ,
+    /// +
+    BINOP_ADD,
+    /// -
+    BINOP_SUB,
+    /// *
+    BINOP_MUL,
+    /// /
+    BINOP_DIV,
+    /// %
+    BINOP_MOD,
+    /// >
+    BINOP_GT,
+    /// <
+    BINOP_LT,
+    /// >=
+    BINOP_GTE,
+    /// <=
+    BINOP_LTE,
+    /// ||
+    BINOP_OR,
+    /// |
+    BINOP_BITOR,
+    /// &&
+    BINOP_AND,
+    /// &
+    BINOP_BITAND,
+    /// =
+    BINOP_ASSIGN,
+    /// +=
+    BINOP_ADD_ASSIGN,
+    /// -=
+    BINOP_SUB_ASSIGN,
+    /// *=
+    BINOP_MUL_ASSIGN,
+    /// /=
+    BINOP_DIV_ASSIGN,
+
+    /// <<
+    BINOP_SHIFT_L,
+    /// <<=
+    BINOP_SHIFT_L_ASSIGN,
+    /// \>>
+    BINOP_SHIFT_R,
+    /// \>>=
+    BINOP_SHIFT_R_ASSIGN,
+    
+    /// !
+    UNOP_NOT,
+    /// &
+    UNOP_REF,
+    /// *
+    UNOP_DEREF,
+    /// -
+    UNOP_NEG,
+    /// ?
+    UNOP_TRY,
+    /// (...)
+    UNOP_CALL,
 
     #[doc(hidden)]
     _EXPR_END_,
+
+    OPERATOR,
 
     PATH,
     PATH_SEPERATOR,
     PATH_SEGMENT_NAMED,
     PATH_SEGMENT_GENERIC,
-
-    UNOP_NOT,
-    UNOP_REF,
-    UNOP_DEREF,
-    UNOP_NEG,
-    UNOP_TRY,
-
-    ERROR,
-
+    
     MODULE,
+    ERROR,
     // IMPORTANT: Make sure _LAST_MARKER_ is always the last variant
     #[doc(hidden)]
     _LAST_MARKER_,
@@ -210,6 +268,7 @@ impl SyntaxKind {
     pub const fn as_str(&self) -> &'static str {
         use SyntaxKind::*;
         match self {
+            WHITESPACE          => "WHITESACE",
             IDENTIFIER          => "IDENT",
             LIT_INTEGER         => "INTEGER",
             LIT_FLOAT           => "FLOAT",

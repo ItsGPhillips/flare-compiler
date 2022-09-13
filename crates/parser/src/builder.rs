@@ -9,7 +9,7 @@ use lexer::{
 use rowan::{Checkpoint, GreenNode, GreenNodeBuilder, Language};
 use syntax::SyntaxKind;
 
-use crate::Flare;
+use crate::{ast::AstError, Flare, Tkn};
 
 pub(crate) struct SyntaxTreeBuilder {
     src: Arc<str>,
@@ -52,7 +52,7 @@ impl SyntaxTreeBuilder {
         if !skip_whitespace {
             return;
         }
-        self.skip_whitespace()
+        self.skip_whitespace();
     }
 
     /// Skips whitespace tokens until a non-whitespace token is reached
@@ -73,14 +73,10 @@ impl SyntaxTreeBuilder {
     /// Peeks **offset** [Tokens](Token) ahead without advancing the underlying [TokenStream].
     /// If **skip_whitespace** is true, whitespace [Tokens](Token) will not be included in
     /// offest calculations
-    pub(crate) fn peek_kind(
-        &mut self,
-        mut offset: usize,
-        skip_whitespace: bool,
-    ) -> Option<SyntaxKind> {
+    pub(crate) fn peek_kind(&mut self, mut offset: usize, skip_whitespace: bool) -> SyntaxKind {
         // Early return for peeking the current token
         if offset == 0 {
-            return Some(self.current_token().kind());
+            return self.current_token().kind();
         }
         if skip_whitespace {
             // Start at 1 so we look and the token next to the current token
@@ -91,16 +87,16 @@ impl SyntaxTreeBuilder {
                     _ => {
                         offset -= 1;
                         if offset == 0 {
-                            return Some(token.kind());
+                            return token.kind();
                         }
                     }
                 }
             }
-            return None;
+            return SyntaxKind::MISC_NULL;
         } else {
             match self.tokens.peek_nth(offset) {
-                Some(token) => Some(token.kind()),
-                None => None,
+                Some(token) => token.kind(),
+                None => SyntaxKind::MISC_NULL,
             }
         }
     }
@@ -150,6 +146,37 @@ impl SyntaxTreeBuilder {
                 span: current.span(),
             });
             false
+        }
+    }
+
+    /// **until** should be a function that returns an iterator over the
+    /// legal token kinds.
+    /// returns true if EOF was reached.
+    pub(crate) fn error_until<F, I>(
+        &mut self,
+        until: F,
+    ) -> Option<SyntaxKind>
+    where
+        F: Fn() -> I,
+        I: Iterator<Item = SyntaxKind>
+    {
+        let c = self.checkpoint();
+        let mut has_errors = false;
+        loop {
+            match until().find(|legal| &self.peek_kind(0, false) == legal) {
+                Some(found) => {
+                    has_errors.then(|| self.finish_node_at(c, SyntaxKind::ERROR));
+                    return Some(found);
+                }
+                None => {
+                    if self.current_token().is(Tkn![NULL]) {
+                        self.finish_node_at(c, SyntaxKind::ERROR);
+                        return None;
+                    }
+                    has_errors = true;
+                    self.advance(false);
+                }
+            }
         }
     }
 

@@ -3,9 +3,8 @@ mod builder;
 mod grammar;
 mod macros;
 
-use crate::ast::{nodes::Module, AstElement};
 use builder::SyntaxTreeBuilder;
-use std::{num, sync::Arc};
+use std::sync::Arc;
 use syntax::SyntaxKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -24,7 +23,7 @@ type SyntaxNode = rowan::SyntaxNode<Flare>;
 type SyntaxToken = rowan::SyntaxToken<Flare>;
 type SyntaxElement = rowan::SyntaxElement<Flare>;
 
-pub fn parse_text(src: Arc<str>) -> Module {
+pub fn parse_text(src: Arc<str>) {
     let mut builder = SyntaxTreeBuilder::new(src);
     builder.parse_module();
 
@@ -34,15 +33,9 @@ pub fn parse_text(src: Arc<str>) -> Module {
 
     let root = SyntaxNode::new_root(builder.finish());
     print_tree_recurssive(root.clone(), "".into(), false, true);
-    Module::cast(root.into()).unwrap()
 }
 
-pub fn print_tree_recurssive(
-    node: SyntaxNode,
-    mut indent: String,
-    is_last: bool,
-    is_root: bool,
-) {
+pub fn print_tree_recurssive(node: SyntaxNode, mut indent: String, is_last: bool, is_root: bool) {
     use owo_colors::*;
 
     if !is_root {
@@ -56,13 +49,26 @@ pub fn print_tree_recurssive(
         }
     }
 
-    let num_children = node.children_with_tokens().count();
+    let num_children_ex_ws = node
+        .children_with_tokens()
+        .filter(|node| node.kind() != SyntaxKind::WHITESPACE)
+        .count();
+
     if node.kind().is_error() {
-        println!("{}[{}]", node.kind().fg_rgb::<224, 96, 92>(), num_children);
+        println!(
+            "{}[{}]",
+            node.kind().fg_rgb::<224, 96, 92>(),
+            num_children_ex_ws
+        );
     } else {
-        println!("{}[{}]", node.kind().fg_rgb::<235, 232, 61>(), num_children);
+        println!(
+            "{}[{}]",
+            node.kind().fg_rgb::<235, 232, 61>(),
+            num_children_ex_ws
+        );
     }
 
+    let num_children = node.children_with_tokens().count();
     for (idx, element) in node.children_with_tokens().enumerate() {
         match element {
             SyntaxElement::Node(node) => {
@@ -74,11 +80,18 @@ pub fn print_tree_recurssive(
                 } else {
                     " ├─"
                 };
-                println!(
-                    "{indent}{corner}{} {}",
-                    token.kind().fg_rgb::<66, 179, 167>(),
-                    token.text().fg_rgb::<230, 196, 85>(),
-                )
+                match token.kind() {
+                    SyntaxKind::WHITESPACE => {
+                        println!("{indent}{corner}{}", token.kind().fg_rgb::<130, 130, 130>(),);
+                    }
+                    _ => {
+                        println!(
+                            "{indent}{corner}{} {}",
+                            token.kind().fg_rgb::<66, 179, 167>(),
+                            token.text().fg_rgb::<230, 196, 85>(),
+                        );
+                    }
+                }
             }
         }
     }
