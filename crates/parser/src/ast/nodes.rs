@@ -1,11 +1,62 @@
-use super::{tokens::LitString, AstElement, AstError};
+use super::{tokens::LitString, AstElement, AstError, utils, visitor::Visitor};
 use crate::{
-    ast::tokens::{LitChar, LitFloat, LitInt},
-    ast_node, gen_binop_node, impl_from, SyntaxNode,
+    ast::tokens::{LitChar, LitFloat, LitInteger},
+    ast_node, gen_binop_node, impl_from, SyntaxNode, SyntaxToken, Tkn,
 };
 use syntax::SyntaxKind;
 
 ast_node!(Module, MODULE);
+impl Module {
+    pub fn items(&self) -> impl Iterator<Item = Item> {
+        utils::children::<Item>(&self.0)
+    }
+}
+// Items ============================================================================
+
+ast_node!(FnItem, ITEM_FN);
+impl FnItem {
+    fn fn_keyword(&self) -> Option<SyntaxToken> {
+        utils::token(&self.0, Tkn!["fn"]).next()
+    }
+}
+
+ast_node!(StructItem, ITEM_STRUCT);
+ast_node!(EnumItem, ITEM_ENUM);
+ast_node!(ImportItem, ITEM_IMPORT);
+
+pub struct Item(SyntaxNode);
+impl AstElement for Item {
+    fn cast(element: crate::SyntaxElement) -> Result<Self, AstError> {
+        element
+            .as_node()
+            .filter(|node| Self::can_cast(node.kind()))
+            .map(|node| Self(node.clone()))
+            .ok_or_else(|| crate::ast::AstError::InvalidCast)
+    }
+    fn syntax(&self) -> crate::SyntaxElement {
+        crate::SyntaxElement::Node(self.0.clone())
+    }
+    fn can_cast(kind: SyntaxKind) -> bool {
+        use SyntaxKind::*;
+        matches!(kind, ITEM_FN | ITEM_STRUCT | ITEM_ENUM | ITEM_IMPORT)
+    }
+}
+
+impl Item {
+    pub fn visit<V: Visitor<Target = Item>>(&self) {
+        use SyntaxKind::*;
+        match self.0.kind() {
+            ITEM_FN => V::visit_fn_item(FnItem::cast(self.syntax()).unwrap()),
+            ITEM_STRUCT => {},
+            ITEM_ENUM => {},
+            ITEM_IMPORT => {},
+            _ => {}
+        }
+    }
+}
+
+// Expressions ======================================================================
+
 ast_node!(Path, PATH);
 
 ast_node!(RefExpr, UNOP_REF);
@@ -13,43 +64,45 @@ ast_node!(NotExpr, UNOP_NOT);
 ast_node!(DerefExpr, UNOP_DEREF);
 ast_node!(NegExpr, UNOP_NEG);
 
+ast_node!(Operator, OPERATOR);
+
 // mutation binops
-gen_binop_node!(BinopAdd, BINOP_ADD);
-gen_binop_node!(BinopSub, BINOP_SUB);
-gen_binop_node!(BinopMul, BINOP_MUL);
-gen_binop_node!(BinopDiv, BINOP_DIV);
-gen_binop_node!(BinopMod, BINOP_MOD);
+gen_binop_node!(Add, BINOP_ADD);
+gen_binop_node!(Sub, BINOP_SUB);
+gen_binop_node!(Mul, BINOP_MUL);
+gen_binop_node!(Div, BINOP_DIV);
+gen_binop_node!(Mod, BINOP_MOD);
 
 // boolean binops
-gen_binop_node!(BinopEq, BINOP_EQ);
-gen_binop_node!(BinopNotEq, BINOP_NOT_EQ);
-gen_binop_node!(BinopAnd, BINOP_AND);
-gen_binop_node!(BinopOr, BINOP_OR);
-gen_binop_node!(BinopLT, BINOP_LT);
-gen_binop_node!(BinopLTE, BINOP_LTE);
-gen_binop_node!(BinopGT, BINOP_GT);
-gen_binop_node!(BinopGTE, BINOP_GTE);
+gen_binop_node!(Eq, BINOP_EQ);
+gen_binop_node!(NotEq, BINOP_NOT_EQ);
+gen_binop_node!(And, BINOP_AND);
+gen_binop_node!(Or, BINOP_OR);
+gen_binop_node!(LT, BINOP_LT);
+gen_binop_node!(LTE, BINOP_LTE);
+gen_binop_node!(GT, BINOP_GT);
+gen_binop_node!(GTE, BINOP_GTE);
 
 // assign binops
-gen_binop_node!(BinopAddAssign, BINOP_ADD_ASSIGN);
-gen_binop_node!(BinopSubAssign, BINOP_SUB_ASSIGN);
-gen_binop_node!(BinopDivAssign, BINOP_DIV_ASSIGN);
-gen_binop_node!(BinopMulAssign, BINOP_MUL_ASSIGN);
+gen_binop_node!(AddAssign, BINOP_ADD_ASSIGN);
+gen_binop_node!(SubAssign, BINOP_SUB_ASSIGN);
+gen_binop_node!(DivAssign, BINOP_DIV_ASSIGN);
+gen_binop_node!(MulAssign, BINOP_MUL_ASSIGN);
 
 // bitwise binops
-gen_binop_node!(BinopBitOr, BINOP_BITOR);
-gen_binop_node!(BinopBitAnd, BINOP_BITAND);
-gen_binop_node!(BinopShiftL, BINOP_SHIFT_L);
-gen_binop_node!(BinopShiftR, BINOP_SHIFT_R);
-gen_binop_node!(BinopShiftLAssign, BINOP_SHIFT_L_ASSIGN);
-gen_binop_node!(BinopShiftRAssign, BINOP_SHIFT_R_ASSIGN);
+gen_binop_node!(BitOr, BINOP_BITOR);
+gen_binop_node!(BitAnd, BINOP_BITAND);
+gen_binop_node!(ShiftL, BINOP_SHIFT_L);
+gen_binop_node!(ShiftR, BINOP_SHIFT_R);
+gen_binop_node!(ShiftLAssign, BINOP_SHIFT_L_ASSIGN);
+gen_binop_node!(ShiftRAssign, BINOP_SHIFT_R_ASSIGN);
 
 #[derive(Debug)]
 pub enum Expr {
     // literals
     String(LitString),
     Char(LitChar),
-    Integer(LitInt),
+    Integer(LitInteger),
     Float(LitFloat),
     Path(Path),
 
@@ -60,72 +113,73 @@ pub enum Expr {
     UnopNeg(NegExpr),
 
     // binops
-    BinopAdd(BinopAdd),
-    BinopSub(BinopSub),
-    BinopMul(BinopMul),
-    BinopDiv(BinopDiv),
-    BinopMod(BinopMod),
-    BinopEq(BinopEq),
-    BinopNotEq(BinopNotEq),
-    BinopAnd(BinopAnd),
-    BinopOr(BinopOr),
-    BinopGT(BinopGT),
-    BinopGTE(BinopGTE),
-    BinopLT(BinopLT),
-    BinopLTE(BinopLTE),
-    BinopBitOr(BinopBitOr),
-    BinopBitAnd(BinopBitAnd),
-    BinopAddAssign(BinopAddAssign),
-    BinopSubAssign(BinopSubAssign),
-    BinopDivAssign(BinopDivAssign),
-    BinopMulAssign(BinopMulAssign),
-    BinopShiftL(BinopShiftL),
-    BinopShiftR(BinopShiftR),
-    BinopShiftLAssign(BinopShiftLAssign),
-    BinopShiftRAssign(BinopShiftRAssign),
+    Add(Add),
+    Sub(Sub),
+    Mul(Mul),
+    BinopDiv(Div),
+    BinopMod(Mod),
+    BinopEq(Eq),
+    BinopNotEq(NotEq),
+    BinopAnd(And),
+    BinopOr(Or),
+    BinopGT(GT),
+    BinopGTE(GTE),
+    BinopLT(LT),
+    BinopLTE(LTE),
+    BinopBitOr(BitOr),
+    BinopBitAnd(BitAnd),
+    BinopAddAssign(AddAssign),
+    BinopSubAssign(SubAssign),
+    BinopDivAssign(DivAssign),
+    BinopMulAssign(MulAssign),
+    BinopShiftL(ShiftL),
+    BinopShiftR(ShiftR),
+    BinopShiftLAssign(ShiftLAssign),
+    BinopShiftRAssign(ShiftRAssign),
 }
 
 impl AstElement for Expr {
+    
     #[rustfmt::skip]
     fn cast(e: crate::SyntaxElement) -> Result<Self, AstError> {
         use SyntaxKind::*;
         match e.kind() {
             LIT_STRING             => Ok(LitString::cast(e)?.into()),
             LIT_CHAR               => Ok(LitChar::cast(e)?.into()),
-            LIT_INTEGER            => Ok(LitInt::cast(e)?.into()),
+            LIT_INTEGER            => Ok(LitInteger::cast(e)?.into()),
             LIT_FLOAT              => Ok(LitFloat::cast(e)?.into()),
             PATH                   => Ok(Path::cast(e)?.into()),
 
-            // unops
+            // Unops
             UNOP_NOT               => Ok(NotExpr::cast(e)?.into()),
             UNOP_REF               => Ok(RefExpr::cast(e)?.into()),
             UNOP_DEREF             => Ok(DerefExpr::cast(e)?.into()),
             UNOP_NEG               => Ok(NegExpr::cast(e)?.into()),
 
             // Binops
-            BINOP_ADD            => Ok(BinopAdd::cast(e)?.into()),
-            BINOP_SUB            => Ok(BinopSub::cast(e)?.into()),
-            BINOP_MUL            => Ok(BinopMul::cast(e)?.into()),
-            BINOP_DIV            => Ok(BinopDiv::cast(e)?.into()),
-            BINOP_MOD            => Ok(BinopMod::cast(e)?.into()),
-            BINOP_EQ             => Ok(BinopEq::cast(e)?.into()),
-            BINOP_NOT_EQ         => Ok(BinopNotEq::cast(e)?.into()),
-            BINOP_AND            => Ok(BinopAnd::cast(e)?.into()),
-            BINOP_OR             => Ok(BinopAnd::cast(e)?.into()),
-            BINOP_GT             => Ok(BinopGT::cast(e)?.into()),
-            BINOP_GTE            => Ok(BinopGTE::cast(e)?.into()),
-            BINOP_LT             => Ok(BinopLT::cast(e)?.into()),
-            BINOP_LTE            => Ok(BinopLTE::cast(e)?.into()),
-            BINOP_BITOR          => Ok(BinopBitOr::cast(e)?.into()),
-            BINOP_BITAND         => Ok(BinopBitAnd::cast(e)?.into()),
-            BINOP_ADD_ASSIGN     => Ok(BinopAddAssign::cast(e)?.into()),
-            BINOP_SUB_ASSIGN     => Ok(BinopSubAssign::cast(e)?.into()),
-            BINOP_DIV_ASSIGN     => Ok(BinopDivAssign::cast(e)?.into()),
-            BINOP_MUL_ASSIGN     => Ok(BinopMulAssign::cast(e)?.into()),
-            BINOP_SHIFT_L        => Ok(BinopShiftL::cast(e)?.into()),
-            BINOP_SHIFT_R        => Ok(BinopShiftL::cast(e)?.into()),
-            BINOP_SHIFT_R_ASSIGN => Ok(BinopShiftLAssign::cast(e)?.into()),
-            BINOP_SHIFT_L_ASSIGN => Ok(BinopShiftLAssign::cast(e)?.into()),
+            BINOP_ADD            => Ok(Add::cast(e)?.into()),
+            BINOP_SUB            => Ok(Sub::cast(e)?.into()),
+            BINOP_MUL            => Ok(Mul::cast(e)?.into()),
+            BINOP_DIV            => Ok(Div::cast(e)?.into()),
+            BINOP_MOD            => Ok(Mod::cast(e)?.into()),
+            BINOP_EQ             => Ok(Eq::cast(e)?.into()),
+            BINOP_NOT_EQ         => Ok(NotEq::cast(e)?.into()),
+            BINOP_AND            => Ok(And::cast(e)?.into()),
+            BINOP_OR             => Ok(Or::cast(e)?.into()),
+            BINOP_GT             => Ok(GT::cast(e)?.into()),
+            BINOP_GTE            => Ok(GTE::cast(e)?.into()),
+            BINOP_LT             => Ok(LT::cast(e)?.into()),
+            BINOP_LTE            => Ok(LTE::cast(e)?.into()),
+            BINOP_BITOR          => Ok(BitOr::cast(e)?.into()),
+            BINOP_BITAND         => Ok(BitAnd::cast(e)?.into()),
+            BINOP_ADD_ASSIGN     => Ok(AddAssign::cast(e)?.into()),
+            BINOP_SUB_ASSIGN     => Ok(SubAssign::cast(e)?.into()),
+            BINOP_DIV_ASSIGN     => Ok(DivAssign::cast(e)?.into()),
+            BINOP_MUL_ASSIGN     => Ok(MulAssign::cast(e)?.into()),
+            BINOP_SHIFT_L        => Ok(ShiftL::cast(e)?.into()),
+            BINOP_SHIFT_R        => Ok(ShiftR::cast(e)?.into()),
+            BINOP_SHIFT_L_ASSIGN => Ok(ShiftLAssign::cast(e)?.into()),
+            BINOP_SHIFT_R_ASSIGN => Ok(ShiftRAssign::cast(e)?.into()),
 
             _ => Err(AstError::InvalidCast),
         }
@@ -146,9 +200,9 @@ impl AstElement for Expr {
             Self::UnopNeg(i)   => i.syntax(),
 
             // binops
-            Self::BinopAdd(i)          => i.syntax(),
-            Self::BinopSub(i)          => i.syntax(),
-            Self::BinopMul(i)          => i.syntax(),
+            Self::Add(i)          => i.syntax(),
+            Self::Sub(i)          => i.syntax(),
+            Self::Mul(i)          => i.syntax(),
             Self::BinopDiv(i)          => i.syntax(),
             Self::BinopMod(i)          => i.syntax(),
             Self::BinopEq(i)           => i.syntax(),
@@ -173,6 +227,10 @@ impl AstElement for Expr {
             Self::Path(i)      => i.syntax(),
         }
     }
+
+    fn can_cast(element: syntax::SyntaxKind) -> bool {
+        todo!()
+    }
 }
 
 impl_from! {
@@ -180,7 +238,7 @@ impl_from! {
     // literals
     LitString => String,
     LitChar   => Char,
-    LitInt    => Integer,
+    LitInteger=> Integer,
     LitFloat  => Float,
     
     // unops
@@ -191,29 +249,33 @@ impl_from! {
     NegExpr   => UnopNeg,
 
     // binops
-    BinopAdd => BinopAdd,
-    BinopSub => BinopSub,
-    BinopMul => BinopMul,
-    BinopDiv => BinopDiv,
-    BinopMod => BinopMod,
-    BinopEq  => BinopEq,
-    BinopNotEq  => BinopNotEq,
-    BinopAnd => BinopAnd,
-    BinopOr  => BinopOr,
-    BinopGT  => BinopGT,
-    BinopGTE  => BinopGTE,
-    BinopLT  => BinopLT,
-    BinopLTE  => BinopLTE,
-    BinopBitOr => BinopBitOr,
-    BinopBitAnd => BinopBitAnd,
-    BinopAddAssign => BinopAddAssign,
-    BinopSubAssign => BinopSubAssign,
-    BinopDivAssign => BinopDivAssign,
-    BinopMulAssign => BinopMulAssign,
-    BinopShiftL => BinopShiftL,
-    BinopShiftR => BinopShiftR,
-    BinopShiftRAssign => BinopShiftRAssign,
-    BinopShiftLAssign => BinopShiftLAssign,
+    Add => Add,
+    Sub => Sub,
+    Mul => Mul,
+    Div => BinopDiv,
+    Mod => BinopMod,
+    Eq  => BinopEq,
+    NotEq  => BinopNotEq,
+    And => BinopAnd,
+    Or  => BinopOr,
+    GT  => BinopGT,
+    GTE  => BinopGTE,
+    LT  => BinopLT,
+    LTE  => BinopLTE,
+    BitOr => BinopBitOr,
+    BitAnd => BinopBitAnd,
+    AddAssign => BinopAddAssign,
+    SubAssign => BinopSubAssign,
+    DivAssign => BinopDivAssign,
+    MulAssign => BinopMulAssign,
+    ShiftL => BinopShiftL,
+    ShiftR => BinopShiftR,
+    ShiftRAssign => BinopShiftRAssign,
+    ShiftLAssign => BinopShiftLAssign,
+}
+
+impl Expr {
+    
 }
 
 ast_node!(Error, ERROR);

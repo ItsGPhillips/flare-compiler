@@ -3,7 +3,12 @@ mod builder;
 mod grammar;
 mod macros;
 
+use ast::{
+    nodes::{Expr, Module},
+    AstElement,
+};
 use builder::SyntaxTreeBuilder;
+use diagnostics::Diagnostic;
 use std::sync::Arc;
 use syntax::SyntaxKind;
 
@@ -23,19 +28,26 @@ type SyntaxNode = rowan::SyntaxNode<Flare>;
 type SyntaxToken = rowan::SyntaxToken<Flare>;
 type SyntaxElement = rowan::SyntaxElement<Flare>;
 
-pub fn parse_text(src: Arc<str>) {
+pub fn parse_text(src: Arc<str>) -> (Module, Vec<Diagnostic>) {
     let mut builder = SyntaxTreeBuilder::new(src);
     builder.parse_module();
+    let errors = std::mem::take(&mut builder.errors);
+    let root = SyntaxNode::new_root(builder.finish());
 
-    for error in std::mem::take(&mut builder.errors) {
-        println!("{:#?}", error);
-    }
+    (
+        Module::cast(root.into()).expect("root must be an expr"),
+        errors,
+    )
+}
 
+pub fn print_syntax_tree(src: Arc<str>) {
+    let mut builder = SyntaxTreeBuilder::new(src);
+    builder.parse_module();
     let root = SyntaxNode::new_root(builder.finish());
     print_tree_recurssive(root.clone(), "".into(), false, true);
 }
 
-pub fn print_tree_recurssive(node: SyntaxNode, mut indent: String, is_last: bool, is_root: bool) {
+fn print_tree_recurssive(node: SyntaxNode, mut indent: String, is_last: bool, is_root: bool) {
     use owo_colors::*;
 
     if !is_root {

@@ -1,9 +1,34 @@
+use scopeguard::guard;
 use syntax::SyntaxKind;
 
 use crate::{SyntaxTreeBuilder, Tkn};
 
 impl SyntaxTreeBuilder {
-    pub(crate) fn parse_path(&mut self) {
+    pub(crate) fn legal_path_start() -> impl Iterator<Item = SyntaxKind> {
+        [
+            Tkn![IDENT],
+            Tkn!["Self"],
+            Tkn!["self"],
+            Tkn![":"],
+            Tkn!["crate"],
+            Tkn!["super"],
+        ]
+        .into_iter()
+    }
+
+    pub(crate) fn legal_type_start() -> impl Iterator<Item = SyntaxKind> {
+        [
+            Tkn![IDENT],
+            Tkn!["Self"],
+            Tkn!["_"],
+            Tkn!["("],
+            Tkn!["["],
+            Tkn!["*"],
+        ]
+        .into_iter()
+    }
+
+    pub(crate) fn parse_path(&mut self) -> SyntaxKind {
         fn try_parse_path_seperator(stb: &mut SyntaxTreeBuilder) {
             let c = stb.checkpoint();
             if stb.current_token().is(Tkn![":"]) {
@@ -19,16 +44,7 @@ impl SyntaxTreeBuilder {
         loop {
             try_parse_path_seperator(self);
             let segment = self.checkpoint();
-            match self.expect_one_of(
-                &[
-                    Tkn![IDENT],
-                    Tkn!["Self"],
-                    Tkn!["self"],
-                    Tkn!["crate"],
-                    Tkn!["super"],
-                ],
-                false,
-            ) {
+            match self.expect_one_of(Self::legal_path_start(), false) {
                 Some(_) => {
                     self.advance(false);
                     self.finish_node_at(segment, SyntaxKind::PATH_SEGMENT_NAMED);
@@ -45,7 +61,54 @@ impl SyntaxTreeBuilder {
                 break;
             }
         }
-        self.finish_node_at(path, SyntaxKind::PATH)
+        self.finish_node_at(path, SyntaxKind::PATH);
+        SyntaxKind::PATH
+    }
+
+    pub(crate) fn parse_type(&mut self)
+    {
+        self.skip_whitespace();
+        let c = self.checkpoint();
+
+        if self.current_token().is(Tkn!["&"]) {
+            let ref_mod = self.checkpoint();
+            self.advance(true);
+            if self.current_token().is(Tkn!["mut"]) {
+                self.advance(false);
+            }
+            self.finish_node_at(ref_mod, SyntaxKind::REF_MODIFIER);
+            self.skip_whitespace();
+        }
+
+        match self.error_until(|| Self::legal_type_start()) {
+            Some(Tkn![IDENT]) => {
+                self.parse_path();
+                self.finish_node_at(c, SyntaxKind::TYPE_NAMED);
+            }
+            Some(Tkn!["("]) => {
+                self.parse_tuple_type();
+            }
+            Some(Tkn!["_"]) => {
+                self.advance(false);
+                self.finish_node_at(c, SyntaxKind::TYPE_UNNAMED);
+                self.skip_whitespace();
+            }
+            Some(_) => unimplemented!(),
+            None => return,
+        }
+    }
+
+    // (&mut T, String, ())
+    pub(crate) fn parse_tuple_type(&mut self) {
+        let c = self.checkpoint();
+        // eat the [
+        self.advance(true);
+        self.skip_whitespace();
+        // create the node when the function returns
+        let mut stb = guard(self, |stb| {
+            stb.finish_node_at(c, SyntaxKind::TYPE_TUPLE);
+        });
+        stb.advance(false);
     }
 }
 

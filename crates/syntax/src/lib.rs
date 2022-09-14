@@ -32,6 +32,10 @@ pub enum SyntaxKind {
     KW_MOD,
     /// struct
     KW_STRUCT,
+    /// enum
+    KW_ENUM,
+    /// import
+    KW_IMPORT,
     /// return
     KW_RETURN,
     /// if
@@ -133,7 +137,6 @@ pub enum SyntaxKind {
     /// Unknown
     MISC_UNKNOWN,
 
-
     #[doc(hidden)]
     _MISC_END_,
 
@@ -152,6 +155,7 @@ pub enum SyntaxKind {
     _LIT_END_,
 
     EXPR_TUPLE,
+    EXPR_BLOCK,
 
     /// ==
     BINOP_EQ,
@@ -204,7 +208,7 @@ pub enum SyntaxKind {
     BINOP_SHIFT_R,
     /// \>>=
     BINOP_SHIFT_R_ASSIGN,
-    
+
     /// !
     UNOP_NOT,
     /// &
@@ -218,6 +222,9 @@ pub enum SyntaxKind {
     /// (...)
     UNOP_CALL,
 
+    EXPR_LET,
+    EXPR_RETURN,
+
     #[doc(hidden)]
     _EXPR_END_,
 
@@ -227,7 +234,39 @@ pub enum SyntaxKind {
     PATH_SEPERATOR,
     PATH_SEGMENT_NAMED,
     PATH_SEGMENT_GENERIC,
+
+    #[doc(hidden)]
+    _ITEM_START_,
+
+    ITEM_FN,
+    ITEM_STRUCT,
+    ITEM_ENUM,
+    ITEM_IMPORT,
+    ITEM_BINDING,
+
+    FN_SIGNATURE,
+    FN_PARAM_LIST,
+    FN_PARAMETER,
+
+    #[doc(hidden)]
+    _ITEM_END_,
+
+    #[doc(hidden)]
+    _TYPE_START_,
+
+    TYPE_NAMED,
+    TYPE_UNNAMED,
+    TYPE_TUPLE,
+    TYPE_ARRAY,
     
+    EXPR_STMT,
+
+    #[doc(hidden)]
+    _TYPE_END_,
+    
+    REF_MODIFIER,
+    RETURN_TYPE,
+
     MODULE,
     ERROR,
     // IMPORTANT: Make sure _LAST_MARKER_ is always the last variant
@@ -260,6 +299,10 @@ impl SyntaxKind {
     #[inline(always)]
     pub fn is_expression(&self) -> bool {
         *self > Self::_EXPR_START_ && *self < Self::_EXPR_END_ || matches!(*self, Self::PATH)
+    }
+    #[inline(always)]
+    pub fn is_item(&self) -> bool {
+        *self > Self::_ITEM_START_ && *self < Self::_ITEM_START_
     }
     #[inline(always)]
     pub fn is_error(&self) -> bool {

@@ -12,6 +12,9 @@ impl SyntaxTreeBuilder {
             Tkn![FLOAT],
             Tkn!["\""],
             Tkn!["\'"],
+            Tkn!["let"],
+            Tkn!["&"],
+            Tkn!["return"],
             Tkn!["Self"],
             Tkn!["self"],
             Tkn![":"],
@@ -21,18 +24,15 @@ impl SyntaxTreeBuilder {
         .into_iter()
     }
 
-    pub(crate) fn parse_module(&mut self) {
-        self.start_node(SyntaxKind::MODULE);
-        self.parse_expr();
-        self.finish_node();
-    }
-
-    pub(crate) fn parse_expr(&mut self) {
+    pub(crate) fn parse_expr(&mut self) -> SyntaxKind {
         #[inline]
-        fn precedence_parser_impl(mut stb: &mut SyntaxTreeBuilder, last_binop: SyntaxKind) {
+        fn precedence_parser_impl(
+            mut stb: &mut SyntaxTreeBuilder,
+            last_binop: SyntaxKind,
+        ) -> SyntaxKind {
             stb.skip_whitespace();
             let c = stb.checkpoint();
-            stb.parse_operand();
+            let mut kind = stb.parse_operand();
             stb.skip_whitespace();
             loop {
                 if let Some((new_binop, _)) = stb.peek_binop() {
@@ -40,17 +40,17 @@ impl SyntaxTreeBuilder {
                     let last_prec = get_binop_precidence(last_binop);
                     if new_prec > last_prec {
                         stb.try_parse_binop();
-                        precedence_parser_impl(&mut stb, new_binop);
+                        kind = precedence_parser_impl(&mut stb, new_binop);
                         stb.finish_node_at(c, new_binop)
                     } else {
-                        return;
+                        return kind;
                     }
                 } else {
-                    return;
+                    return kind;
                 }
             }
         }
-        precedence_parser_impl(self, Tkn![NULL]);
+        precedence_parser_impl(self, Tkn![NULL])
     }
 
     pub(crate) fn try_parse_binop(&mut self) -> Option<SyntaxKind> {
@@ -100,13 +100,13 @@ impl SyntaxTreeBuilder {
         Some(out)
     }
 
-    pub(crate) fn parse_operand(&mut self) {
+    pub(crate) fn parse_operand(&mut self) -> SyntaxKind {
         self.try_parse_prefix_ops();
 
         let c = self.checkpoint();
         let current = self.current_token();
 
-        match current.kind() {
+        let kind = match current.kind() {
             Tkn![IDENT]
             | Tkn!["Self"]
             | Tkn!["self"]
@@ -114,28 +114,67 @@ impl SyntaxTreeBuilder {
             | Tkn!["crate"]
             | Tkn!["super"] => self.parse_path(),
 
-            Tkn![INTEGER] | Tkn![FLOAT] => self.advance(false),
+            Tkn!["return"] => self.parse_return_expr(),
+
+            // Tkn!["let"] => self.parse_let_expr(),
+            Tkn![INTEGER] | Tkn![FLOAT] => {
+                self.advance(false);
+                current.kind()
+            }
+            Tkn!["("] => self.parse_tuple_expr(),
             Tkn!["\""] => self.parse_string_literal(),
             Tkn!["\'"] => self.parse_char_literal(),
-            _ => {}
-        }
+            _ => Tkn![NULL],
+        };
         self.try_parse_postfix_ops(c);
+
+        kind
     }
 
-    pub(crate) fn try_parse_postfix_ops(&mut self, c: Checkpoint) {
+    pub(crate) fn parse_tuple_expr(&mut self) -> SyntaxKind {
+        let c = self.checkpoint();
+        // eat the ( token
+        self.advance(true);
+
+        // create the node when the function returns
+        let mut stb = guard(self, |stb| {
+            stb.finish_node_at(c, SyntaxKind::EXPR_TUPLE);
+        });
+
+        while !stb.current_token().is(Tkn![")"]) {
+            match stb.error_until(|| Self::legal_expr_start().chain([Tkn![","], Tkn![")"]])) {
+                Some(Tkn![","]) => {
+                    stb.advance(true);
+                }
+                Some(Tkn![")"]) => {
+                    stb.advance(false);
+                    break;
+                }
+                Some(_) => {
+                    stb.parse_expr();
+                }
+                None => break,
+            }
+        }
+        SyntaxKind::EXPR_TUPLE
+    }
+
+    pub(crate) fn try_parse_postfix_ops(&mut self, c: Checkpoint) -> Option<SyntaxKind> {
+        let mut kind = None;
         loop {
             match self.current_token().kind() {
                 Tkn!["?"] => {
                     self.advance(true);
-                    self.finish_node_at(c, SyntaxKind::UNOP_TRY)
+                    self.finish_node_at(c, SyntaxKind::UNOP_TRY);
+                    kind = Some(SyntaxKind::UNOP_TRY);
                 }
-                Tkn!["("] => self.parse_call_op(c),
-                _ => return,
+                Tkn!["("] => kind = Some(self.parse_call_op(c)),
+                _ => return kind,
             }
         }
     }
 
-    pub(crate) fn parse_call_op(&mut self, c: Checkpoint) {
+    pub(crate) fn parse_call_op(&mut self, c: Checkpoint) -> SyntaxKind {
         // eat the (
         self.advance(true);
         self.skip_whitespace();
@@ -151,13 +190,17 @@ impl SyntaxTreeBuilder {
                 }
                 Some(Tkn![")"]) => {
                     stb.advance(false);
-                    return;
+                    return SyntaxKind::UNOP_CALL;
                 }
-                Some(_) => stb.parse_expr(),
-                None => return,
+                Some(_) => {
+                    stb.parse_expr();
+                }
+                None => return SyntaxKind::UNOP_CALL,
             }
         }
         stb.advance(false);
+
+        SyntaxKind::UNOP_CALL
     }
 
     pub(crate) fn try_parse_prefix_ops(&mut self) {
@@ -188,7 +231,7 @@ impl SyntaxTreeBuilder {
         self.finish_node();
     }
 
-    pub(crate) fn parse_string_literal(&mut self) {
+    pub(crate) fn parse_string_literal(&mut self) -> SyntaxKind {
         self.start_node(SyntaxKind::LIT_STRING);
         self.advance(false);
         while !self.current_token().is(Tkn!["\""]) {
@@ -196,15 +239,53 @@ impl SyntaxTreeBuilder {
         }
         self.advance(false);
         self.finish_node();
+        SyntaxKind::LIT_STRING
     }
 
-    pub(crate) fn parse_char_literal(&mut self) {
+    pub(crate) fn parse_char_literal(&mut self) -> SyntaxKind {
         self.start_node(SyntaxKind::LIT_CHAR);
         self.advance(false);
         while !self.current_token().is(Tkn!["\'"]) {
             self.advance(false);
         }
         self.finish_node();
+        SyntaxKind::LIT_CHAR
+    }
+
+    pub(crate) fn parse_return_expr(&mut self) -> SyntaxKind {
+        self.skip_whitespace();
+        let c = self.checkpoint();
+
+        self.expect(Tkn!["return"], true);
+        self.skip_whitespace();
+
+        let mut stb = guard(self, |stb| {
+            stb.finish_node_at(c, SyntaxKind::EXPR_RETURN);
+        });
+
+        match stb.error_until(|| Self::legal_expr_start().chain([Tkn![";"]])) {
+            Some(Tkn![";"]) | None => {}
+            Some(_) => {
+                stb.parse_expr();
+            }
+        };
+        SyntaxKind::EXPR_RETURN
+    }
+
+    pub(crate) fn parse_block_expr(&mut self) {
+        self.skip_whitespace();
+        let c = self.checkpoint();
+
+        // eat the {
+        self.expect(Tkn!["{"], true);
+        let mut stb = guard(self, |stb| {
+            stb.finish_node_at(c, SyntaxKind::EXPR_BLOCK);
+        });
+        while !stb.current_token().is(Tkn!["}"]) {
+            stb.parse_block_item();
+            stb.skip_whitespace();
+        }
+        stb.advance(false);
     }
 }
 

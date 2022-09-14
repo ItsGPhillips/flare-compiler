@@ -20,13 +20,12 @@ pub(crate) struct SyntaxTreeBuilder {
 
 impl SyntaxTreeBuilder {
     pub fn new(src: Arc<str>) -> Self {
-        let mut this = Self {
+        let this = Self {
             src: src.clone(),
             tokens: peek_nth(TokenStream::new(src)),
             builder: GreenNodeBuilder::new(),
             errors: vec![],
         };
-        this.skip_whitespace();
         this
     }
 
@@ -103,15 +102,15 @@ impl SyntaxTreeBuilder {
 
     pub(crate) fn expect_one_of<'a>(
         &mut self,
-        kinds: &'a [SyntaxKind],
+        mut kinds: impl Iterator<Item = SyntaxKind>,
         should_advance: bool,
     ) -> Option<SyntaxKind> {
         let current = self.current_token();
-        if let Some(kind) = kinds.iter().find(|kind| self.current_token().is(**kind)) {
+        if let Some(kind) = kinds.find(|kind| self.current_token().is(*kind)) {
             if should_advance {
                 self.advance(false);
             }
-            Some(*kind)
+            Some(kind)
         } else {
             self.errors.push(Diagnostic {
                 level: diagnostics::DiagnosticLevel::FATAL,
@@ -119,7 +118,7 @@ impl SyntaxTreeBuilder {
                 message: format!(
                     "Unexpected Token: found {}, expected one of {}",
                     current.kind().as_str(),
-                    kinds.iter().map(|kind| kind.as_str()).join(", ")
+                    kinds.map(|kind| kind.as_str()).join(", ")
                 ),
                 span: current.span(),
             });
@@ -151,7 +150,6 @@ impl SyntaxTreeBuilder {
 
     /// **until** should be a function that returns an iterator over the
     /// legal token kinds.
-    /// returns true if EOF was reached.
     pub(crate) fn error_until<F, I>(&mut self, until: F) -> Option<SyntaxKind>
     where
         F: Fn() -> I,
