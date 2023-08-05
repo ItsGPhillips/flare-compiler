@@ -45,6 +45,20 @@ impl Span {
     }
 
     #[inline]
+    pub fn get_str_line<'a>(&self, src: &'a str) -> Option<(usize, &'a str)> {
+        for (idx, line) in src.lines().enumerate() {
+            let n_bytes = line.as_bytes().len();
+            if (0..n_bytes)
+                .find(|&offset| unsafe { line.as_ptr().add(offset) } == self.get_str(src).as_ptr())
+                .is_some()
+            {
+                return Some((idx + 1, line));
+            }
+        }
+        None
+    }
+
+    #[inline]
     pub fn to_end(&mut self, other: Span) {
         self.end = other.end
     }

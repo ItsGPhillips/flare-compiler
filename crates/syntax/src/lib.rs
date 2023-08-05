@@ -222,7 +222,11 @@ pub enum SyntaxKind {
     /// (...)
     UNOP_CALL,
 
+    MEMBER_ACCESS,
+
     EXPR_LET,
+    EXPR_CONST,
+    EXPR_STATIC,
     EXPR_RETURN,
 
     #[doc(hidden)]
@@ -245,8 +249,8 @@ pub enum SyntaxKind {
     ITEM_BINDING,
 
     FN_SIGNATURE,
-    FN_PARAM_LIST,
-    FN_PARAMETER,
+    PARAMETER_LIST,
+    PARAMETER,
 
     #[doc(hidden)]
     _ITEM_END_,
@@ -258,14 +262,28 @@ pub enum SyntaxKind {
     TYPE_UNNAMED,
     TYPE_TUPLE,
     TYPE_ARRAY,
-    
+
     EXPR_STMT,
 
     #[doc(hidden)]
     _TYPE_END_,
-    
+
     REF_MODIFIER,
     RETURN_TYPE,
+    TYPE_BINDING,
+    ASSIGMENT,
+
+    MUTABLE,
+
+    PATTERN,
+    PATTERN_UNNAMED,
+    PATTERN_DIRECT,
+    PATTERN_STRUCT,
+    PATTERN_STRUCT_TUPLE,
+    PATTERN_TUPLE,
+    PATTERN_ENUM_VARIANT,
+    PATTERN_ENUM_VARIANT_TUPLE,
+    PATTERN_ENUM_VARIANT_STRUCT,
 
     MODULE,
     ERROR,
@@ -312,12 +330,22 @@ impl SyntaxKind {
     pub fn is_whitespace(&self) -> bool {
         *self == Self::WHITESPACE
     }
+
+    pub fn to_binding_expr(&self) -> Self {
+        match self {
+            Self::KW_LET => Self::EXPR_LET,
+            Self::KW_CONST => Self::EXPR_CONST,
+            Self::KW_STATIC => Self::EXPR_STATIC,
+            _ => panic!("{} is not a binding keyword", self)
+        }
+    }
+
     #[inline]
     #[rustfmt::skip]
     pub const fn as_str(&self) -> &'static str {
         use SyntaxKind::*;
         match self {
-            WHITESPACE          => "WHITESACE",
+            WHITESPACE          => "WHITESPACE",
             IDENTIFIER          => "IDENT",
             LIT_INTEGER         => "INTEGER",
             LIT_FLOAT           => "FLOAT",

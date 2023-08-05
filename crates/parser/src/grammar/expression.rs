@@ -112,11 +112,11 @@ impl SyntaxTreeBuilder {
             | Tkn!["self"]
             | Tkn![":"]
             | Tkn!["crate"]
-            | Tkn!["super"] => self.parse_path(),
+            | Tkn!["super"] => self.parse_path(true),
 
             Tkn!["return"] => self.parse_return_expr(),
 
-            // Tkn!["let"] => self.parse_let_expr(),
+            Tkn!["let"] => self.parse_let_expr(),
             Tkn![INTEGER] | Tkn![FLOAT] => {
                 self.advance(false);
                 current.kind()
@@ -168,12 +168,23 @@ impl SyntaxTreeBuilder {
                     self.finish_node_at(c, SyntaxKind::UNOP_TRY);
                     kind = Some(SyntaxKind::UNOP_TRY);
                 }
+                Tkn!["."] => {
+                    // x.
+                    self.advance(true);
+
+                    match self.current_token().kind() {
+                        _ => {
+                            self.parse_operand();
+                        }
+                    }
+                    self.finish_node_at(c, SyntaxKind::MEMBER_ACCESS);
+                    kind = Some(SyntaxKind::MEMBER_ACCESS);
+                }
                 Tkn!["("] => kind = Some(self.parse_call_op(c)),
                 _ => return kind,
             }
         }
     }
-
     pub(crate) fn parse_call_op(&mut self, c: Checkpoint) -> SyntaxKind {
         // eat the (
         self.advance(true);
@@ -202,7 +213,6 @@ impl SyntaxTreeBuilder {
 
         SyntaxKind::UNOP_CALL
     }
-
     pub(crate) fn try_parse_prefix_ops(&mut self) {
         // TODO(George): make this non-recurssive???
         match self.current_token().kind() {
@@ -286,6 +296,63 @@ impl SyntaxTreeBuilder {
             stb.skip_whitespace();
         }
         stb.advance(false);
+    }
+
+    pub(crate) fn parse_let_expr(&mut self) -> SyntaxKind {
+        assert!(matches!(
+            self.current_token().kind(),
+            Tkn!["let"] | Tkn!["const"] | Tkn!["static"]
+        ));
+
+        let binding_expr = self.current_token().kind().to_binding_expr();
+        self.start_node(binding_expr);
+
+        // eat the let | const | static
+        self.advance(true);
+
+        let mut stb = guard(self, |stb| {
+            stb.finish_node();
+        });
+
+        if stb.current_token().is(Tkn!["mut"]) {
+            stb.advance(true);
+        }
+
+        stb.parse_pattern(false);
+        stb.skip_whitespace();
+
+        match stb.error_until(|| [Tkn![":"], Tkn!["="], Tkn![";"]].into_iter()) {
+            Some(Tkn![":"]) => {
+                stb.parse_type_binding();
+            }
+            Some(Tkn!["="]) => {
+                stb.parse_let_assignment();
+                return binding_expr;
+            }
+            None | Some(Tkn![";"]) | Some(_) => {
+                return binding_expr;
+            }
+        }
+
+        stb.skip_whitespace();
+
+        match stb.error_until(|| [Tkn!["="], Tkn![";"]].into_iter()) {
+            Some(Tkn!["="]) => {
+                stb.parse_let_assignment();
+                return binding_expr;
+            }
+            Some(Tkn![";"]) | Some(_) | None => {
+                return binding_expr;
+            }
+        }
+    }
+
+    fn parse_let_assignment(&mut self) {
+        assert!(matches!(self.current_token().kind(), Tkn!["="]));
+        self.start_node(SyntaxKind::ASSIGMENT);
+        self.advance(true);
+        self.parse_expr();
+        self.finish_node();
     }
 }
 

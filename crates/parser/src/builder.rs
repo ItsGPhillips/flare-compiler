@@ -43,7 +43,7 @@ impl SyntaxTreeBuilder {
     /// If **skip_whitespace** is true, all whitespace tokens will be consumed
     /// until a non-whitespace token is reached
     pub(crate) fn advance(&mut self, skip_whitespace: bool) {
-        let token = self.tokens.next().unwrap();
+        let token = self.tokens.next().expect("Unexpected EOF");
         self.builder.token(
             Flare::kind_to_raw(token.kind()),
             token.span().get_str(&self.src),

@@ -12,6 +12,7 @@ impl SyntaxTreeBuilder {
             self.finish_node();
             return;
         }
+
         match self.error_until(|| Self::legal_expr_start().chain(Self::legal_item_start())) {
             Some(t) if Self::legal_expr_start().contains(&t) => self.parse_expr_stmt(),
             Some(t) if Self::legal_item_start().contains(&t) => self.parse_item(),
@@ -21,8 +22,7 @@ impl SyntaxTreeBuilder {
     fn parse_expr_stmt(&mut self) {
         let c = self.checkpoint();
         if requires_semicolon_as_stmt(self.parse_expr()) {
-            if self.expect(Tkn![";"], true) {
-            }
+            self.expect(Tkn![";"], true);
         } else if self.current_token().is(Tkn![";"]) {
             self.advance(false);
         }
@@ -34,5 +34,5 @@ impl SyntaxTreeBuilder {
 
 fn requires_semicolon_as_stmt(kind: SyntaxKind) -> bool {
     use SyntaxKind::*;
-    matches!(kind, EXPR_LET | EXPR_RETURN)
+    matches!(kind, EXPR_LET | EXPR_RETURN | EXPR_CONST | EXPR_STATIC)
 }

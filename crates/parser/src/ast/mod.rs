@@ -11,6 +11,9 @@ pub enum AstError {
     #[error("Invalid cast")]
     InvalidCast,
 
+    #[error("Missing Node")]
+    MissingNode,
+
     #[error("Unexpected EOF")]
     UnexpectedEOF,
 }

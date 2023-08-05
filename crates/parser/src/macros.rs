@@ -16,6 +16,8 @@ macro_rules! Tkn {
    ["enum"]       => { ::syntax::SyntaxKind::KW_ENUM       };
    ["import"]     => { ::syntax::SyntaxKind::KW_IMPORT     };
    ["return"]     => { ::syntax::SyntaxKind::KW_RETURN     };
+   ["const"]      => { ::syntax::SyntaxKind::KW_CONST      };
+   ["static"]     => { ::syntax::SyntaxKind::KW_STATIC     };
 
 
    ["\""]   =>  { ::syntax::SyntaxKind::PUNC_QUOTE          };
@@ -43,6 +45,7 @@ macro_rules! Tkn {
    ["]"]    =>  { ::syntax::SyntaxKind::PUNC_RBRACKET       };
    ["{"]    =>  { ::syntax::SyntaxKind::PUNC_LBRACE         };
    ["}"]    =>  { ::syntax::SyntaxKind::PUNC_RBRACE         };
+   ["."]    =>  { ::syntax::SyntaxKind::PUNC_PERIOD         };
 
    ["=="]    =>  { ::syntax::SyntaxKind::BINOP_EQ           };
    ["!="]    =>  { ::syntax::SyntaxKind::BINOP_NOT_EQ       };

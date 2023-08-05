@@ -1,4 +1,5 @@
 use crate::{builder::SyntaxTreeBuilder, Tkn};
+use itertools::Itertools;
 use rowan::Checkpoint;
 use scopeguard::guard;
 use syntax::SyntaxKind;
@@ -66,53 +67,62 @@ impl SyntaxTreeBuilder {
         }
 
         if stb.current_token().is(Tkn![":"]) {
-            let ret_ty = stb.checkpoint();
-            stb.advance(true);
-            stb.parse_type();
-            stb.finish_node_at(ret_ty, SyntaxKind::RETURN_TYPE);
+            stb.parse_type_binding();
         }
     }
+
     fn parse_fn_parameters(&mut self) {
         let c = self.checkpoint();
         // eat the (
         self.advance(true);
         let mut stb = guard(self, |stb| {
-            stb.finish_node_at(c, SyntaxKind::FN_PARAM_LIST);
+            stb.finish_node_at(c, SyntaxKind::PARAMETER_LIST);
         });
+
+        let mut allow_comma = false;
+        let mut expect_parameter = false;
+
         while !stb.current_token().is(Tkn![")"]) {
-            match stb.error_until(|| [Tkn![IDENT], Tkn!["mut"], Tkn![","], Tkn![")"]].into_iter()) {
-                Some(Tkn![","]) => {
-                    stb.advance(true);
+            stb.skip_whitespace();
+            if allow_comma {
+                match stb.error_until(|| [Tkn![","], Tkn![")"]].into_iter()) {
+                    Some(Tkn![","]) => {
+                        stb.advance(true);
+                        allow_comma = false;
+                        continue;
+                    }
+                    _ => continue,
                 }
+            }
+            match stb.error_until(|| Self::legal_pattern_start().chain([Tkn![")"]])) {
                 Some(Tkn![")"]) => {
                     stb.advance(false);
                     return;
                 }
-                Some(_) => stb.parse_typed_pattern(),
+                Some(_) => {
+                    stb.parse_paramater();
+                    stb.skip_whitespace();
+                    allow_comma = true;
+                },
                 None => return,
             }
         }
         stb.advance(false);
     }
-    fn parse_typed_pattern(&mut self) {
-        self.skip_whitespace();
-        let c = self.checkpoint();
+    fn parse_paramater(&mut self) {
+        self.start_node(SyntaxKind::PARAMETER);
         let mut stb = guard(self, |stb| {
-            stb.finish_node_at(c, SyntaxKind::FN_PARAMETER);
+            stb.finish_node();
         });
-        if stb.current_token().is(Tkn!["mut"]) {
-            stb.advance(true);
-            stb.skip_whitespace();
-        }
-        match stb.error_until(|| [Tkn![IDENT], Tkn![","], Tkn![")"]].into_iter()) {
-            Some(Tkn![IDENT]) => stb.advance(true),
-            _ => return,
-        }
+
+        stb.parse_pattern(false);
+        stb.skip_whitespace();
+        
         match stb.error_until(|| [Tkn![":"], Tkn![","], Tkn![")"]].into_iter()) {
             Some(Tkn![":"]) => stb.advance(true),
             _ => return,
         }
+
         stb.parse_type();
-        stb.skip_whitespace();
     }
 }

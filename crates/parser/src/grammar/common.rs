@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use scopeguard::guard;
 use syntax::SyntaxKind;
 
@@ -28,21 +29,52 @@ impl SyntaxTreeBuilder {
         .into_iter()
     }
 
-    pub(crate) fn parse_path(&mut self) -> SyntaxKind {
-        fn try_parse_path_seperator(stb: &mut SyntaxTreeBuilder) {
-            let c = stb.checkpoint();
-            if stb.current_token().is(Tkn![":"]) {
-                stb.advance(false);
-                stb.expect(Tkn![":"], true);
-                stb.finish_node_at(c, SyntaxKind::PATH_SEPERATOR);
-                stb.skip_whitespace();
-            }
+    pub(crate) fn legal_pattern_start() -> impl Iterator<Item = SyntaxKind> {
+        Self::legal_path_start().chain([Tkn!["mut"], Tkn!["_"]])
+    }
+
+    pub(crate) fn parse_path(&mut self, force_error: bool) -> SyntaxKind {
+        assert!(Self::legal_path_start().contains(&self.current_token().kind()));
+
+        fn try_parse_path_seperator(stb: &mut SyntaxTreeBuilder, force_error: bool) -> bool {
+            match (stb.peek_kind(0, false), stb.peek_kind(1, false)) {
+                (Tkn![":"], Tkn![":"]) => {
+                    stb.start_node(SyntaxKind::PATH_SEPERATOR);
+                    stb.advance(false);
+                    stb.advance(false);
+                    stb.finish_node();
+                    return false;
+                }
+                (Tkn![":"], _) => {
+                    if force_error {
+                        stb.start_node(SyntaxKind::PATH_SEPERATOR);
+                        stb.advance(false);
+                        stb.expect(Tkn![":"], false);
+                        stb.finish_node();
+                        return false;
+                    }
+                    return true;
+                }
+                (Tkn![IDENT], _) => {
+                    return false;
+                }
+                _ => return true
+            } 
         }
+
         // ==========================================================================
 
         let path = self.checkpoint();
+        let mut is_path = false;
         loop {
-            try_parse_path_seperator(self);
+            if try_parse_path_seperator(self, force_error) {
+                if is_path {
+                    self.finish_node_at(path, SyntaxKind::PATH);
+                }
+                return SyntaxKind::PATH;
+            }
+            is_path = true;
+            self.skip_whitespace();
             let segment = self.checkpoint();
             match self.expect_one_of(Self::legal_path_start(), false) {
                 Some(_) => {
@@ -65,8 +97,7 @@ impl SyntaxTreeBuilder {
         SyntaxKind::PATH
     }
 
-    pub(crate) fn parse_type(&mut self)
-    {
+    pub(crate) fn parse_type(&mut self) {
         self.skip_whitespace();
         let c = self.checkpoint();
 
@@ -82,7 +113,7 @@ impl SyntaxTreeBuilder {
 
         match self.error_until(|| Self::legal_type_start()) {
             Some(Tkn![IDENT]) => {
-                self.parse_path();
+                self.parse_path(true);
                 self.finish_node_at(c, SyntaxKind::TYPE_NAMED);
             }
             Some(Tkn!["("]) => {
@@ -97,7 +128,12 @@ impl SyntaxTreeBuilder {
             None => return,
         }
     }
-
+    pub(crate) fn parse_type_binding(&mut self) {
+        let ret_ty = self.checkpoint();
+        self.advance(true);
+        self.parse_type();
+        self.finish_node_at(ret_ty, SyntaxKind::TYPE_BINDING);
+    }
     // (&mut T, String, ())
     pub(crate) fn parse_tuple_type(&mut self) {
         let c = self.checkpoint();
@@ -110,6 +146,35 @@ impl SyntaxTreeBuilder {
         });
         stb.advance(false);
     }
+
+    pub(crate) fn parse_pattern(&mut self, force_colon_error: bool) {
+        self.start_node(SyntaxKind::PATTERN);
+        let mut stb = guard(self, |stb| {
+            stb.finish_node();
+        });
+
+        if stb.current_token().is(Tkn!["mut"]) {
+            stb.start_node(SyntaxKind::MUTABLE);
+            stb.advance(false);
+            stb.finish_node();
+            stb.skip_whitespace();
+        }
+
+        if stb.current_token().is(Tkn!["_"]) {
+            stb.start_node(SyntaxKind::PATTERN_UNNAMED);
+            stb.advance(false);
+            stb.finish_node();
+            return;
+        }
+
+        stb.parse_path(force_colon_error);
+
+        match stb.current_token().kind() {
+            Tkn!["{"] => unimplemented!(),
+            Tkn!["("] => unimplemented!(),
+            _ => {}
+        }
+    }
 }
 
 #[cfg(test)]
@@ -121,7 +186,7 @@ mod tests {
 
     fn syntax_output(src: &str) -> String {
         let mut builder = SyntaxTreeBuilder::new(src.into());
-        builder.parse_path();
+        builder.parse_path(true);
         let root = SyntaxNode::new_root(builder.finish());
         format!("{:#?}", root)
     }

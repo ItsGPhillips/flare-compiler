@@ -1,0 +1,16 @@
+[package]
+name = "typecheck"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gtrie = "0.4.0"
+indextree = "4.4.0"
+
+[dependencies.parser]
+path = "../parser"
+
+[dependencies.syntax]
+path = "../syntax"

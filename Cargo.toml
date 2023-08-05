@@ -4,13 +4,13 @@ members = [
    "crates/syntax",
    "crates/lexer",
    "crates/parser",
+   "crates/typecheck",
 ]
 
 [package]
 name = "compiler"
 version = "0.1.0"
 edition = "2021"
-
 
 [dependencies]
 

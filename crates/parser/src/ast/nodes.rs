@@ -1,4 +1,4 @@
-use super::{tokens::LitString, AstElement, AstError, utils, visitor::Visitor};
+use super::{tokens::LitString, utils, visitor::Visitor, AstElement, AstError};
 use crate::{
     ast::tokens::{LitChar, LitFloat, LitInteger},
     ast_node, gen_binop_node, impl_from, SyntaxNode, SyntaxToken, Tkn,
@@ -15,8 +15,77 @@ impl Module {
 
 ast_node!(FnItem, ITEM_FN);
 impl FnItem {
-    fn fn_keyword(&self) -> Option<SyntaxToken> {
+    pub fn fn_keyword(&self) -> Option<SyntaxToken> {
         utils::token(&self.0, Tkn!["fn"]).next()
+    }
+    pub fn signature(&self) -> Result<FnSig, AstError> {
+        utils::children::<FnSig>(&self.0)
+            .next()
+            .ok_or(AstError::MissingNode)
+    }
+    pub fn block_expr(&self) -> Result<BlockExpr, AstError> {
+        utils::children(&self.0).next().ok_or(AstError::MissingNode)
+    }
+}
+
+ast_node!(FnSig, FN_SIGNATURE);
+impl FnSig {
+    pub fn name<'a>(&'a self) -> Result<&'a str, AstError> {
+        utils::token(&self.0, SyntaxKind::IDENTIFIER)
+            .next()
+            .map(|token| unsafe {
+                // SAFETY: the lifetime of t.text() is tied to the current iterator.
+                // the text bytes are stored in the underlying tree and is kept alive
+                // by the node itself.
+                // As long as the t.text() is only alive as long as the node it the transmute
+                // will be ok
+                std::mem::transmute(token.text())
+            })
+            .ok_or(AstError::MissingNode)
+    }
+    pub fn param_list(&self) -> Result<FnParamList, AstError> {
+        utils::children::<FnParamList>(&self.0)
+            .next()
+            .ok_or(AstError::MissingNode)
+    }
+    pub fn return_type(&self) -> Option<FnReturnType> {
+        utils::children::<FnReturnType>(&self.0).next()
+    }
+}
+
+ast_node!(FnReturnType, RETURN_TYPE);
+impl FnReturnType {
+    pub fn named(&self) -> Option<TypeNamed> {
+        utils::children::<TypeNamed>(&self.0).next()
+    }
+}
+
+ast_node!(TypeNamed, RETURN_TYPE);
+impl TypeNamed {
+    pub fn path(&self) -> Option<Path> {
+        utils::children::<Path>(&self.0).next()
+    }
+}
+
+ast_node!(FnParamList, PARAMETER_LIST);
+impl FnParamList {
+    pub fn parameters(&self) -> impl Iterator<Item = FnParameter> {
+        utils::children::<FnParameter>(&self.0)
+    }
+}
+
+ast_node!(FnParameter, PARAMETER);
+impl FnParameter {
+    pub fn name<'a>(&'a self) -> Result<&'a str, AstError> {
+        utils::token(&self.0, SyntaxKind::IDENTIFIER)
+            .nth(0)
+            .map(|t| unsafe { std::mem::transmute(t.text()) })
+            .ok_or(AstError::MissingNode)
+    }
+    pub fn param_type<'a>(&'a self) -> Result<TypeNamed, AstError> {
+        utils::children::<TypeNamed>(&self.0)
+            .next()
+            .ok_or(AstError::MissingNode)
     }
 }
 
@@ -43,21 +112,56 @@ impl AstElement for Item {
 }
 
 impl Item {
-    pub fn visit<V: Visitor<Target = Item>>(&self) {
-        use SyntaxKind::*;
-        match self.0.kind() {
-            ITEM_FN => V::visit_fn_item(FnItem::cast(self.syntax()).unwrap()),
-            ITEM_STRUCT => {},
-            ITEM_ENUM => {},
-            ITEM_IMPORT => {},
-            _ => {}
-        }
+    pub fn visit(&self, visitor: impl Visitor) -> Result<(), AstError> {
+        FnItem::cast(self.syntax()).map(|item| visitor.visit_fn_item(item))?
     }
 }
 
 // Expressions ======================================================================
 
+pub struct Statement(SyntaxNode);
+impl AstElement for Statement {
+    fn cast(element: crate::SyntaxElement) -> Result<Self, AstError> {
+        element
+            .as_node()
+            .filter(|node| Self::can_cast(node.kind()))
+            .map(|node| Self(node.clone()))
+            .ok_or_else(|| crate::ast::AstError::InvalidCast)
+    }
+    fn syntax(&self) -> crate::SyntaxElement {
+        crate::SyntaxElement::Node(self.0.clone())
+    }
+    fn can_cast(kind: SyntaxKind) -> bool {
+        use SyntaxKind::*;
+        matches!(kind, EXPR_STMT)
+    }
+}
+
+impl Statement {
+    pub fn visit(&self, visitor: impl Visitor) -> Result<(), AstError> {
+        use SyntaxKind::*;
+        match self.0.kind() {
+            EXPR_STMT => visitor.visit_expression(
+                utils::children::<Expr>(&self.0)
+                    .next()
+                    .ok_or(AstError::MissingNode)?,
+            ),
+            _ => unreachable!(),
+        }
+    }
+}
+
+ast_node!(BlockExpr, EXPR_BLOCK);
+impl BlockExpr {
+    pub fn statements(&self) -> impl Iterator<Item = Statement> {
+        utils::children(&self.0)
+    }
+}
+
 ast_node!(Path, PATH);
+impl Path {
+    pub fn segments(&self) {}
+}
 
 ast_node!(RefExpr, UNOP_REF);
 ast_node!(NotExpr, UNOP_NOT);
@@ -139,7 +243,6 @@ pub enum Expr {
 }
 
 impl AstElement for Expr {
-    
     #[rustfmt::skip]
     fn cast(e: crate::SyntaxElement) -> Result<Self, AstError> {
         use SyntaxKind::*;
@@ -192,13 +295,11 @@ impl AstElement for Expr {
             Self::Char(i)      => i.syntax(),
             Self::Integer(i)   => i.syntax(),
             Self::Float(i)     => i.syntax(),
-            
             // unops
             Self::UnopRef(i)   => i.syntax(),
             Self::UnopNot(i)   => i.syntax(),
             Self::UnopDeref(i) => i.syntax(),
             Self::UnopNeg(i)   => i.syntax(),
-
             // binops
             Self::Add(i)          => i.syntax(),
             Self::Sub(i)          => i.syntax(),
@@ -240,7 +341,7 @@ impl_from! {
     LitChar   => Char,
     LitInteger=> Integer,
     LitFloat  => Float,
-    
+
     // unops
     Path      => Path,
     RefExpr   => UnopRef,
@@ -274,8 +375,6 @@ impl_from! {
     ShiftLAssign => BinopShiftLAssign,
 }
 
-impl Expr {
-    
-}
+impl Expr {}
 
 ast_node!(Error, ERROR);
