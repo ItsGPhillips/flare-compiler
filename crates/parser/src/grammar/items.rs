@@ -1,5 +1,4 @@
 use crate::{builder::SyntaxTreeBuilder, Tkn};
-use itertools::Itertools;
 use rowan::Checkpoint;
 use scopeguard::guard;
 use syntax::SyntaxKind;
@@ -80,7 +79,6 @@ impl SyntaxTreeBuilder {
         });
 
         let mut allow_comma = false;
-        let mut expect_parameter = false;
 
         while !stb.current_token().is(Tkn![")"]) {
             stb.skip_whitespace();
@@ -114,15 +112,12 @@ impl SyntaxTreeBuilder {
         let mut stb = guard(self, |stb| {
             stb.finish_node();
         });
-
         stb.parse_pattern(false);
-        stb.skip_whitespace();
-        
+        stb.skip_whitespace();     
         match stb.error_until(|| [Tkn![":"], Tkn![","], Tkn![")"]].into_iter()) {
             Some(Tkn![":"]) => stb.advance(true),
             _ => return,
         }
-
         stb.parse_type();
     }
 }

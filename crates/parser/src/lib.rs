@@ -4,7 +4,7 @@ mod grammar;
 mod macros;
 
 use ast::{
-    nodes::{Expr, Module},
+    node::{Expr, Module},
     AstElement,
 };
 use builder::SyntaxTreeBuilder;
@@ -24,18 +24,26 @@ impl rowan::Language for Flare {
     }
 }
 
-type SyntaxNode = rowan::SyntaxNode<Flare>;
-type SyntaxToken = rowan::SyntaxToken<Flare>;
-type SyntaxElement = rowan::SyntaxElement<Flare>;
+pub type SyntaxNode = rowan::SyntaxNode<Flare>;
+pub type SyntaxToken = rowan::SyntaxToken<Flare>;
+pub type SyntaxElement = rowan::SyntaxElement<Flare>;
+pub type SyntaxNodePtr = rowan::ast::SyntaxNodePtr<Flare>;
+pub type NodeOrToken = rowan::NodeOrToken<SyntaxNode, SyntaxToken>;
+pub type GreenNode = rowan::GreenNode;
 
-pub fn parse_text(src: Arc<str>) -> (Module, Vec<Diagnostic>) {
+pub fn parse_source_file(src: Arc<str>) -> (Module, GreenNode, Vec<Diagnostic>) {
     let mut builder = SyntaxTreeBuilder::new(src);
     builder.parse_module();
     let errors = std::mem::take(&mut builder.errors);
     let root = SyntaxNode::new_root(builder.finish());
 
+    let root_2 = root.clone();
+
+    use rowan::ast::AstNode;
+
     (
         Module::cast(root.into()).expect("root must be an expr"),
+        root_2.green().into(),
         errors,
     )
 }

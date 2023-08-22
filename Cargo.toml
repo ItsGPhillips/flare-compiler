@@ -1,10 +1,13 @@
 [workspace]
 members = [
-   "crates/diagnostics",
-   "crates/syntax",
-   "crates/lexer",
-   "crates/parser",
-   "crates/typecheck",
+  "crates/diagnostics",
+  "crates/syntax",
+  "crates/lexer",
+  "crates/parser",
+  "crates/typecheck",
+  "crates/hir",
+  "crates/interner",
+  "crates/executor",
 ]
 
 [package]
@@ -13,6 +16,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bevy_tasks = "0.11.0"
+
+[dependencies.executor]
+path = "crates/executor"
 
 [dependencies.parser]
 path = "crates/parser"
+
+[dependencies.hir]
+path = "crates/hir"

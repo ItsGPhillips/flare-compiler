@@ -12,6 +12,7 @@ impl SyntaxTreeBuilder {
             Tkn![FLOAT],
             Tkn!["\""],
             Tkn!["\'"],
+            Tkn!["{"],
             Tkn!["let"],
             Tkn!["&"],
             Tkn!["return"],
@@ -113,9 +114,11 @@ impl SyntaxTreeBuilder {
             | Tkn![":"]
             | Tkn!["crate"]
             | Tkn!["super"] => self.parse_path(true),
-
+            Tkn!["{"] => {
+                self.parse_block_expr();
+                SyntaxKind::EXPR_BLOCK
+            }
             Tkn!["return"] => self.parse_return_expr(),
-
             Tkn!["let"] => self.parse_let_expr(),
             Tkn![INTEGER] | Tkn![FLOAT] => {
                 self.advance(false);
@@ -283,13 +286,15 @@ impl SyntaxTreeBuilder {
     }
 
     pub(crate) fn parse_block_expr(&mut self) {
-        self.skip_whitespace();
-        let c = self.checkpoint();
+        assert!(self.current_token().kind() == Tkn!["{"]);
+
+        self.start_node(SyntaxKind::EXPR_BLOCK);
 
         // eat the {
-        self.expect(Tkn!["{"], true);
+        self.advance(true);
+
         let mut stb = guard(self, |stb| {
-            stb.finish_node_at(c, SyntaxKind::EXPR_BLOCK);
+            stb.finish_node();
         });
         while !stb.current_token().is(Tkn!["}"]) {
             stb.parse_block_item();

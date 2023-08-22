@@ -67,19 +67,9 @@ macro_rules! ast_token {
     ($NAME:ident, $KIND:ident) => {
         #[derive(Debug)]
         pub struct $NAME(SyntaxToken);
-        impl AstElement for $NAME {
-            fn can_cast(kind: ::syntax::SyntaxKind) -> bool {
-                kind == ::syntax::SyntaxKind::$KIND
-            }
-            fn cast(element: crate::SyntaxElement) -> Result<Self, crate::ast::AstError> {
-                element
-                    .as_token()
-                    .filter(|token| Self::can_cast(token.kind()))
-                    .map(|token| Self(token.clone()))
-                    .ok_or_else(|| crate::ast::AstError::InvalidCast)
-            }
-            fn syntax(&self) -> crate::SyntaxElement {
-                crate::SyntaxElement::Token(self.0.clone())
+        impl $NAME {
+            pub fn syntax(&self) -> &crate::SyntaxToken {
+                &self.0
             }
         }
     };
@@ -88,21 +78,28 @@ macro_rules! ast_token {
 #[macro_export]
 macro_rules! ast_node {
     ($NAME:ident, $KIND:ident) => {
-        #[derive(Debug)]
-        pub struct $NAME(SyntaxNode);
-        impl AstElement for $NAME {
-            fn can_cast(kind: ::syntax::SyntaxKind) -> bool {
-                kind == ::syntax::SyntaxKind::$KIND
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        pub struct $NAME(crate::SyntaxNode);
+        impl rowan::ast::AstNode for $NAME {
+            type Language = crate::Flare;
+            fn can_cast(kind: <Self::Language as rowan::Language>::Kind) -> bool
+            where
+                Self: Sized,
+            {
+                kind == <Self::Language as rowan::Language>::Kind::$KIND
             }
-            fn cast(element: crate::SyntaxElement) -> Result<Self, crate::ast::AstError> {
-                element
-                    .as_node()
-                    .filter(|node| Self::can_cast(node.kind()))
-                    .map(|node| Self(node.clone()))
-                    .ok_or_else(|| crate::ast::AstError::InvalidCast)
+            fn cast(node: rowan::SyntaxNode<Self::Language>) -> Option<Self>
+            where
+                Self: Sized,
+            {
+                if Self::can_cast(node.kind()) {
+                    Some(Self(node))
+                } else {
+                    None
+                }
             }
-            fn syntax(&self) -> crate::SyntaxElement {
-                crate::SyntaxElement::Node(self.0.clone())
+            fn syntax(&self) -> &rowan::SyntaxNode<Self::Language> {
+                &self.0
             }
         }
     };
@@ -129,16 +126,16 @@ macro_rules! gen_binop_node {
         crate::ast_node!($NAME, $KIND);
         impl $NAME {
             #[inline]
-            pub fn lhs_expr(&self) -> Option<crate::ast::nodes::Expr> {
-                crate::ast::utils::children::<crate::ast::nodes::Expr>(&self.0).nth(0)
+            pub fn lhs_expr(&self) -> Option<crate::ast::node::Expr> {
+                rowan::ast::support::children::<crate::ast::node::Expr>(&self.0).nth(0)
             }
             #[inline]
-            pub fn rhs_expr(&self) -> Option<crate::ast::nodes::Expr> {
-                crate::ast::utils::children::<crate::ast::nodes::Expr>(&self.0).nth(1)
+            pub fn rhs_expr(&self) -> Option<crate::ast::node::Expr> {
+                rowan::ast::support::children::<crate::ast::node::Expr>(&self.0).nth(1)
             }
             #[inline]
-            pub fn operator(&self) -> Option<crate::ast::nodes::Operator> {
-                crate::ast::utils::children::<crate::ast::nodes::Operator>(&self.0).next()
+            pub fn operator(&self) -> Option<crate::ast::node::Operator> {
+                rowan::ast::support::children::<crate::ast::node::Operator>(&self.0).next()
             }
         }
     };
