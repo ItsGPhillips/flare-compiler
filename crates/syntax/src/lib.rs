@@ -154,6 +154,9 @@ pub enum SyntaxKind {
     #[doc(hidden)]
     _LIT_END_,
 
+    EXPR_INTEGER,
+    EXPR_FLOAT,
+
     EXPR_TUPLE,
     EXPR_BLOCK,
 
@@ -336,7 +339,7 @@ impl SyntaxKind {
             Self::KW_LET => Self::EXPR_LET,
             Self::KW_CONST => Self::EXPR_CONST,
             Self::KW_STATIC => Self::EXPR_STATIC,
-            _ => panic!("{} is not a binding keyword", self)
+            _ => panic!("{} is not a binding keyword", self),
         }
     }
 

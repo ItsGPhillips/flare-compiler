@@ -14,3 +14,9 @@ path = "../parser"
 
 [dependencies.syntax]
 path = "../syntax"
+
+[dependencies.diagnostics]
+path = "../diagnostics/"
+
+[dependencies.interner]
+path = "../interner"

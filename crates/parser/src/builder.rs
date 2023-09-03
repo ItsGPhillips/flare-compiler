@@ -6,7 +6,7 @@ use lexer::{
     token::{Token, NULL_TOKEN},
     TokenStream,
 };
-use rowan::{Checkpoint, GreenNode, GreenNodeBuilder, Language};
+use rowan::{Checkpoint, GreenNode, GreenNodeBuilder, Language, TextRange};
 use syntax::SyntaxKind;
 
 use crate::{Flare, Tkn};
@@ -119,8 +119,9 @@ impl SyntaxTreeBuilder {
                     "Unexpected Token: found {}, expected one of {}",
                     current.kind().as_str(),
                     kinds.map(|kind| kind.as_str()).join(", ")
-                ),
-                span: current.span(),
+                )
+                .into(),
+                span: TextRange::default(), // TODO
             });
             None
         }
@@ -141,8 +142,9 @@ impl SyntaxTreeBuilder {
                     "Unexpected Token: found {}, expected {}",
                     current.kind().as_str(),
                     kind.as_str(),
-                ),
-                span: current.span(),
+                )
+                .into(),
+                span: TextRange::default(), // TODO
             });
             false
         }

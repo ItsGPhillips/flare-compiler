@@ -65,7 +65,7 @@ pub(crate) mod utils {
         token(node, kind).nth(N)
     }
 
-    pub fn errors(node: &crate::SyntaxNode) -> impl Iterator<Item = node::Error> {
-        children::<node::Error>(node)
-    }
+    // pub fn errors(node: &crate::SyntaxNode) -> impl Iterator<Item = node::Error> {
+    //     children::<node::Error>(node)
+    // }
 }

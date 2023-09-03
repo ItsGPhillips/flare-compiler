@@ -1,6 +1,4 @@
-use std::{
-    hash::{Hash, Hasher},
-};
+use std::hash::{Hash, Hasher};
 
 use super::{tokens::LitString, utils, visitor::Visitor, AstElement, AstError};
 use crate::{
@@ -47,6 +45,7 @@ pub enum Item {
 impl AstNode for Item {
     type Language = crate::Flare;
     fn cast(node: crate::SyntaxNode) -> Option<Self> {
+        use SyntaxKind::*;
         if Self::can_cast(node.kind()) {
             Some(match node.kind() {
                 ITEM_FN => Item::Function(FunctionItem(node.clone())),
@@ -75,7 +74,7 @@ impl AstNode for Item {
 
 ast_node!(FunctionSig, FN_SIGNATURE);
 impl FunctionSig {
-    pub fn name(&self) -> Result<Interned<str>, AstError> {
+    pub fn name(&self) -> Option<Interned<str>> {
         utils::nth_token::<0>(&self.0, SyntaxKind::IDENTIFIER)
             .map(|token| Interned::new_str(token.text()))
     }
@@ -123,7 +122,7 @@ impl TypeBinding {
 ast_node!(TypeNamed, RETURN_TYPE);
 impl TypeNamed {
     pub fn path(&self) -> Option<Path> {
-        child::<Path, 0>(&self.0)
+        child::<Path>(&self.0)
     }
 }
 
@@ -146,6 +145,7 @@ impl AstNode for Type {
         matches!(kind, TYPE_NAMED | TYPE_UNNAMED | TYPE_TUPLE | TYPE_ARRAY)
     }
     fn cast(node: SyntaxNode) -> Option<Self> {
+        use SyntaxKind::*;
         if Self::can_cast(node.kind()) {
             Some(match node.kind() {
                 TYPE_NAMED => Type::Named(TypeNamed(node.clone())),
@@ -343,44 +343,44 @@ impl AstNode for Expr {
     fn cast(e: SyntaxNode) -> Option<Self> {
         use SyntaxKind::*;
         match e.kind() {
-            LIT_STRING             => Ok(LitString::cast(e)?.into()),
-            LIT_CHAR               => Ok(LitChar::cast(e)?.into()),
-            LIT_INTEGER            => Ok(LitInteger::cast(e)?.into()),
-            LIT_FLOAT              => Ok(LitFloat::cast(e)?.into()),
-            PATH                   => Ok(Path::cast(e)?.into()),
+            // LIT_STRING             => Ok(LitString(e)),
+            // LIT_CHAR               => Ok(LitChar::cast(e)?.into()),
+            // LIT_INTEGER            => Ok(LitInteger::cast(e)?.into()),
+            // LIT_FLOAT              => Ok(LitFloat::cast(e)?.into()),
+            PATH                   => Some(Path(e).into()),
 
             // Unops
-            UNOP_NOT               => Ok(NotExpr::cast(e)?.into()),
-            UNOP_REF               => Ok(RefExpr::cast(e)?.into()),
-            UNOP_DEREF             => Ok(DerefExpr::cast(e)?.into()),
-            UNOP_NEG               => Ok(NegExpr::cast(e)?.into()),
+            UNOP_NOT               => Some(NotExpr(e).into()),
+            UNOP_REF               => Some(RefExpr(e).into()),
+            UNOP_DEREF             => Some(DerefExpr(e).into()),
+            UNOP_NEG               => Some(NegExpr(e).into()),
 
             // Binops
-            BINOP_ADD            => Ok(BinopAdd::cast(e)?.into()),
-            BINOP_SUB            => Ok(BinopSub::cast(e)?.into()),
-            BINOP_MUL            => Ok(BinopMul::cast(e)?.into()),
-            BINOP_DIV            => Ok(BinopDiv::cast(e)?.into()),
-            BINOP_MOD            => Ok(BinopMod::cast(e)?.into()),
-            BINOP_EQ             => Ok(BinopEq::cast(e)?.into()),
-            BINOP_NOT_EQ         => Ok(BinopNotEq::cast(e)?.into()),
-            BINOP_AND            => Ok(BinopAnd::cast(e)?.into()),
-            BINOP_OR             => Ok(BinopOr::cast(e)?.into()),
-            BINOP_GT             => Ok(BinopGT::cast(e)?.into()),
-            BINOP_GTE            => Ok(BinopGTE::cast(e)?.into()),
-            BINOP_LT             => Ok(BinopLT::cast(e)?.into()),
-            BINOP_LTE            => Ok(BinopLTE::cast(e)?.into()),
-            BINOP_BITOR          => Ok(BinopBitOr::cast(e)?.into()),
-            BINOP_BITAND         => Ok(BinopBitAnd::cast(e)?.into()),
-            BINOP_ADD_ASSIGN     => Ok(BinopAddAssign::cast(e)?.into()),
-            BINOP_SUB_ASSIGN     => Ok(BinopSubAssign::cast(e)?.into()),
-            BINOP_DIV_ASSIGN     => Ok(BinopDivAssign::cast(e)?.into()),
-            BINOP_MUL_ASSIGN     => Ok(BinopMulAssign::cast(e)?.into()),
-            BINOP_SHIFT_L        => Ok(BinopShiftL::cast(e)?.into()),
-            BINOP_SHIFT_R        => Ok(BinopShiftR::cast(e)?.into()),
-            BINOP_SHIFT_L_ASSIGN => Ok(BinopShiftLAssign::cast(e)?.into()),
-            BINOP_SHIFT_R_ASSIGN => Ok(BinopShiftRAssign::cast(e)?.into()),
+            BINOP_ADD            => Some(BinopAdd(e).into()),
+            BINOP_SUB            => Some(BinopSub(e).into()),
+            BINOP_MUL            => Some(BinopMul(e).into()),
+            BINOP_DIV            => Some(BinopDiv(e).into()),
+            BINOP_MOD            => Some(BinopMod(e).into()),
+            BINOP_EQ             => Some(BinopEq(e).into()),
+            BINOP_NOT_EQ         => Some(BinopNotEq(e).into()),
+            BINOP_AND            => Some(BinopAnd(e).into()),
+            BINOP_OR             => Some(BinopOr(e).into()),
+            BINOP_GT             => Some(BinopGT(e).into()),
+            BINOP_GTE            => Some(BinopGTE(e).into()),
+            BINOP_LT             => Some(BinopLT(e).into()),
+            BINOP_LTE            => Some(BinopLTE(e).into()),
+            BINOP_BITOR          => Some(BinopBitOr(e).into()),
+            BINOP_BITAND         => Some(BinopBitAnd(e).into()),
+            BINOP_ADD_ASSIGN     => Some(BinopAddAssign(e).into()),
+            BINOP_SUB_ASSIGN     => Some(BinopSubAssign(e).into()),
+            BINOP_DIV_ASSIGN     => Some(BinopDivAssign(e).into()),
+            BINOP_MUL_ASSIGN     => Some(BinopMulAssign(e).into()),
+            BINOP_SHIFT_L        => Some(BinopShiftL(e).into()),
+            BINOP_SHIFT_R        => Some(BinopShiftR(e).into()),
+            BINOP_SHIFT_L_ASSIGN => Some(BinopShiftLAssign(e).into()),
+            BINOP_SHIFT_R_ASSIGN => Some(BinopShiftRAssign(e).into()),
 
-            _ => Err(AstError::InvalidCast),
+            _ => None, 
         }
     }
     #[rustfmt::skip]

@@ -120,10 +120,8 @@ impl SyntaxTreeBuilder {
             }
             Tkn!["return"] => self.parse_return_expr(),
             Tkn!["let"] => self.parse_let_expr(),
-            Tkn![INTEGER] | Tkn![FLOAT] => {
-                self.advance(false);
-                current.kind()
-            }
+            Tkn![INTEGER] => self.parse_integer_literal(),
+            Tkn![FLOAT] => self.parse_float_literal(),
             Tkn!["("] => self.parse_tuple_expr(),
             Tkn!["\""] => self.parse_string_literal(),
             Tkn!["\'"] => self.parse_char_literal(),
@@ -242,6 +240,22 @@ impl SyntaxTreeBuilder {
         }
         self.parse_expr();
         self.finish_node();
+    }
+
+    pub(crate) fn parse_integer_literal(&mut self) -> SyntaxKind {
+        debug_assert!(self.current_token().is(SyntaxKind::LIT_INTEGER));
+        self.start_node(SyntaxKind::EXPR_INTEGER);
+        self.advance(false);
+        self.finish_node();
+        SyntaxKind::EXPR_INTEGER
+    }
+
+    pub(crate) fn parse_float_literal(&mut self) -> SyntaxKind {
+        debug_assert!(self.current_token().is(SyntaxKind::LIT_FLOAT));
+        self.start_node(SyntaxKind::EXPR_FLOAT);
+        self.advance(false);
+        self.finish_node();
+        SyntaxKind::EXPR_FLOAT
     }
 
     pub(crate) fn parse_string_literal(&mut self) -> SyntaxKind {

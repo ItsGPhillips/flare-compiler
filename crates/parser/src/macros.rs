@@ -66,8 +66,11 @@ macro_rules! Tkn {
 macro_rules! ast_token {
     ($NAME:ident, $KIND:ident) => {
         #[derive(Debug)]
-        pub struct $NAME(SyntaxToken);
+        pub struct $NAME(pub(crate) SyntaxToken);
         impl $NAME {
+            pub fn test(&self) -> &str {
+                self.0.text()
+            }
             pub fn syntax(&self) -> &crate::SyntaxToken {
                 &self.0
             }
@@ -78,6 +81,7 @@ macro_rules! ast_token {
 #[macro_export]
 macro_rules! ast_node {
     ($NAME:ident, $KIND:ident) => {
+        #[repr(transparent)]
         #[derive(Debug, Clone, PartialEq, Eq)]
         pub struct $NAME(crate::SyntaxNode);
         impl rowan::ast::AstNode for $NAME {

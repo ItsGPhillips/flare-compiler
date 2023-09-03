@@ -1,4 +1,6 @@
-use span::Span;
+use std::borrow::Cow;
+
+pub use rowan::TextRange;
 pub mod span;
 
 #[derive(Debug)]
@@ -12,7 +14,11 @@ pub enum DiagnosticLevel {
 #[derive(Debug)]
 pub struct Diagnostic {
     pub level: DiagnosticLevel,
-    pub title: String,
-    pub message: String,
-    pub span: Span,
+    pub title: Cow<'static, str>,
+    pub message: Cow<'static, str>,
+    pub span: TextRange,
+}
+
+pub fn report(_diagnostic: Diagnostic) {
+    // TODO
 }
